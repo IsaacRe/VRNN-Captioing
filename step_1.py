@@ -98,7 +98,7 @@ def main(args):
     user_input = raw_input("Does it make sense to you?(y/n)\n")
 
     if str(user_input) == "n":
-        f = open('data/step_1/caption_2.txt','r')
+        f = open('data/step_1/caption_1.txt','r')
         ground_true = f.read()
         teach_wordid = []
         teach_wordid.append(vocab.word2idx["<start>"])

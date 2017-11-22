@@ -60,20 +60,23 @@ def main(args):
             
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
+            print captions
+        
             captions = to_var(captions)
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            print captions
             
             # Forward, Backward and Optimize
             decoder.zero_grad()
             encoder.zero_grad()
             features = encoder(images)
             outputs = decoder(features, captions, lengths)
-            print "output:\n"
-            print outputs
-            print "target:\n"
-            print targets
-            print "##########################"
+
             loss = criterion(outputs, targets)
+            additional_caption = []
+            for word in captions:
+                additional_caption.append(word)
+
             print loss
             break
             loss.backward()
