@@ -1,0 +1,52 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+	<div class="row divider blue">
+		<div class="col-md-12"></div>
+	</div>
+	<div class="row banner main">
+		<div class="col-md-2"></div>
+		<div class="col-md-10 padding-none">
+			<h1>Image Captioning Autocompletion</h1>
+		</div>
+	</div>
+
+
+	<div class="row padding-top padding-bottom">
+	</div>
+	<div class="container">
+
+        <div class="row">
+		    <div class="col-md-3">
+				<a href = "{{url_for('showStep1')}}">
+					<div class="row">
+						<div class="col-md-1"></div>
+							<div class="col-md-10 course-list">
+								<h3>Sentence Autocompletion</h3>
+							</div>
+						<div class="col-md-1"></div>
+					</div>
+				</a>
+				<a href = "{{url_for('showStep1')}}">
+					<div class="row">
+						<div class="col-md-1"></div>
+							<div class="col-md-10 course-list">
+								<h3>Paragraph Autocompletion</h3>
+							</div>
+						<div class="col-md-1"></div>
+					</div>
+				</a>				
+			</div>
+            <div class="col-md-9">
+                <h4 class="padding-bottom-19">Latest Items</h4>
+                
+            </div>
+
+        </div>
+        <!-- /.row -->
+    </div>
+    <!-- /.container -->
+
+
+
+{% endblock %}

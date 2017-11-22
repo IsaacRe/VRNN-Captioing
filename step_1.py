@@ -41,6 +41,23 @@ def decode(feature,user_input,decoder,vocab):
             break
     return ' '.join(sampled_caption)
 
+def encode(img,vocab):
+    transform = transforms.Compose([
+            transforms.ToTensor(), 
+            transforms.Normalize((0.485, 0.456, 0.406), 
+                                 (0.229, 0.224, 0.225))])
+    encoder = EncoderCNN(256)
+    encoder.eval()  # evaluation mode (BN uses moving mean/variance)
+    encoder.load_state_dict(torch.load('./models/encoder-4-3000.pkl'))
+    image = load_image(img, transform)
+    image_tensor = to_var(image, volatile=True)
+    
+    # If use gpu
+    if torch.cuda.is_available():
+        encoder.cuda()
+    feature = encoder(image_tensor)
+    return feature
+
 
 def main(args):   
     transform = transforms.Compose([
@@ -49,25 +66,6 @@ def main(args):
                              (0.229, 0.224, 0.225))])
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
-    
-    # data_loader = CocoDataset(root=args.image_dir,
-    #                    json=args.caption_path,
-    #                    vocab=vocab,
-    #                    transform=transform)
-    # i = 2
-    # sampled_ids = data_loader[i][1]
-    # sampled_caption = []
-    # for word_id in sampled_ids:
-    #     print word_id
-    #     word = vocab.idx2word[word_id]
-    #     sampled_caption.append(word)
-    #     if word == '<end>':
-    #         break
-    # sentence = ' '.join(sampled_caption)
-    # print (sentence)
-    # print data_loader[i][0]
-    # print data_loader[i][2]
-
 
     
     # Build Models
@@ -128,11 +126,11 @@ if __name__ == '__main__':
                         help='path for train annotation json file')
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')
-    parser.add_argument('--encoder_path', type=str, default='./models/encoder-4-3000.pkl',
+    parser.add_argument('--encoder_path', type=str, default='../models/encoder-4-3000.pkl',
                         help='path for trained encoder')
-    parser.add_argument('--decoder_path', type=str, default='./models/decoder-4-3000.pkl',
+    parser.add_argument('--decoder_path', type=str, default='../models/decoder-4-3000.pkl',
                         help='path for trained decoder')
-    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
+    parser.add_argument('--vocab_path', type=str, default='../data/vocab.pkl',
                         help='path for vocabulary wrapper')
     
     # Model parameters (should be same as paramters in train.py)
