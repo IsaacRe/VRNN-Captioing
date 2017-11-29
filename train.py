@@ -62,16 +62,19 @@ def main(args):
             images = to_var(images, volatile=True)
             print captions
             captions = to_var(captions)
-            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            targets_1 = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            targets_0 = pack_padded_sequence(captions[:,:-1], [l-1 for l in lengths], batch_first=True)[0]
             
             # Forward, Backward and Optimize
             decoder.zero_grad()
             encoder.zero_grad()
             features = encoder(images)
-            outputs = decoder(features, captions, lengths)
-            loss = criterion(outputs, targets)
+            out_0, out_1 = decoder(features, captions, lengths)
+            loss_1 = criterion(out_1, targets_1)
+            loss_0 = criterion(out_0, targets_0)
+            loss = loss_0 + loss_1
             print loss
-            break
+            
             loss.backward()
             optimizer.step()
 
