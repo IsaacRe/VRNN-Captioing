@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.autograd import Variable
 
 
@@ -46,14 +47,18 @@ class DecoderRNN(nn.Module):
         self.linear.bias.data.fill_(0)
         
     def forward(self, features, captions, lengths):
-        """Decode image feature vectors and generates captions."""
+        """ Decode image feature vectors and generates captions. """
         embeddings = self.embed(captions)
         embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
-        hiddens, _ = self.lstm(packed)
-        outputs = self.linear(hiddens[0])
-        return outputs
-    
+        packed_gt = pack_padded_sequence(embeddings, lengths, batch_first=True)
+        hiddens, _ = self.lstm(packed_gt)
+        out_1 = self.linear(hiddens[0])
+        embeddings_pred = pad_packed_sequence((out_1[0],hiddens[1]))[0].max(1)[1][:-1].detach()
+        packed_pred = pack_padded_sequence(embeddings, [l-1 for l in lengths], batch_first=True)
+        hiddens_pred, _ = self.lstm(packed_pred)
+        out_0 = self.linear(hiddens_pred[0])
+        return out_0, out_1
+
     def sample(self, features,user_input,states=None):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
