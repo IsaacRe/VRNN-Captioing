@@ -75,3 +75,21 @@ class DecoderRNN(nn.Module):
             inputs = self.embed(predicted)
         sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)
         return sampled_ids.squeeze()
+
+    def next_word(self, features, user_input, word_number,states=None):
+        """Samples captions for given image features (Greedy search)."""
+        sampled_ids = []
+        inputs = features.unsqueeze(1)
+        for i in range(20):                                      # maximum sampling length
+            hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
+            outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
+            if i < len(user_input):
+                predicted = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                inputs = self.embed(predicted)
+            else:
+                st= outputs.sort(1,descending=True)
+                for a in range(0,word_number):
+                    sampled_ids.append(st[1][0][a])
+                break
+        sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)
+        return sampled_ids.squeeze()       

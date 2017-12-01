@@ -1,0 +1,33 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+
+	<div class="row divider blue">
+		<div class="col-md-12"></div>
+	</div>
+	<div class="row banner main">
+		<div class="col-md-2"></div>
+		<div class="col-md-10 padding-none">
+			<h1>Image Captioning Autocompletion</h1>
+		</div>
+	</div>
+
+	<div class="row padding-top padding-bottom">
+	</div>
+
+	<div class="container">
+		<div class="row">
+		<div class="col-md-4"></div>
+			<img src="{{image.name}}" align="middle">
+		</div>
+
+		<div class="col-md-10 padding-none">
+			<a href="{{url_for('extractFeature_nextword')}}">
+				<button class="btn btn-default">
+					<span class="glyphicon glyphicon-list-alt" aria-hidden="true"></span>Test
+				</button>
+			</a>
+		</div>
+		
+	</div>
+{% endblock %}

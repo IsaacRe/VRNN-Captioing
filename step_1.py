@@ -41,6 +41,19 @@ def decode(feature,user_input,decoder,vocab):
             break
     return ' '.join(sampled_caption)
 
+def decode_word(feature,user_input,decoder,vocab):
+    sampled_ids = decoder.next_word(feature,user_input,3)
+    sampled_ids = sampled_ids.cpu().data.numpy()
+    
+    # Decode word_ids to words
+    sampled_caption = []
+    for word_id in sampled_ids:
+        word = vocab.idx2word[word_id]
+        sampled_caption.append(word)
+        if word == '<end>':
+            break
+    return sampled_caption
+
 def encode(img,vocab):
     transform = transforms.Compose([
             transforms.ToTensor(), 
@@ -96,23 +109,43 @@ def main(args):
     user_input = raw_input("Does it make sense to you?(y/n)\n")
 
     if str(user_input) == "n":
-        f = open('data/step_1/caption_1.txt','r')
-        ground_true = f.read()
-        teach_wordid = []
-        teach_wordid.append(vocab.word2idx["<start>"])
-        while(True):
-            print "This is the ground true:\n"+ground_true+"\n"+\
-            "###################################################\n"
-            reference = ground_true.split()
-            hypothesis = sentence.split()
-            BLEUscore = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
-            print "Current BLEU score is "+str(BLEUscore)
-            word = raw_input("next word:\n")
-            word_idx = vocab.word2idx[word]
-            teach_wordid.append(word_idx)
-            sentence = decode(feature,teach_wordid,decoder,vocab)
-            print "###################################################\n"
-            print "Current Translated sentence is: \n"+sentence+"\n"
+        user_input = raw_input("Do you want only next word?(y/n)\n")
+        if str(user_input) ==  "n":
+            f = open('data/step_1/caption_1.txt','r')
+            ground_true = f.read()
+            teach_wordid = []
+            teach_wordid.append(vocab.word2idx["<start>"])
+            while(True):
+                print "This is the ground true:\n"+ground_true+"\n"+\
+                "###################################################\n"
+                reference = ground_true.split()
+                hypothesis = sentence.split()
+                BLEUscore = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
+                print "Current BLEU score is "+str(BLEUscore)
+                word = raw_input("next word:\n")
+                word_idx = vocab.word2idx[word]
+                teach_wordid.append(word_idx)
+                sentence = decode(feature,teach_wordid,decoder,vocab)
+                print "###################################################\n"
+                print "Current Translated sentence is: \n"+sentence+"\n"
+        elif str(user_input) ==  "y":
+            f = open('data/step_1/caption_1.txt','r')
+            ground_true = f.read()
+            teach_wordid = []
+            teach_word = []
+            teach_wordid.append(vocab.word2idx["<start>"])
+            teach_word.append("<start>")
+            while(True):
+                print "###################################################\n"
+                print "This is the ground true:\n"+ground_true+"\n"
+                word = raw_input(str(teach_word)+" + ")
+                teach_word.append(word)
+                word_idx = vocab.word2idx[word]
+                teach_wordid.append(word_idx)
+                next_word = decode_word(feature,teach_wordid,decoder,vocab)
+                print "###################################################\n"
+                print "You can choose from these words: \n"+str(next_word)+"\n"
+
 
 
     
@@ -126,11 +159,11 @@ if __name__ == '__main__':
                         help='path for train annotation json file')
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')
-    parser.add_argument('--encoder_path', type=str, default='../models/encoder-4-3000.pkl',
+    parser.add_argument('--encoder_path', type=str, default='./models/encoder-4-3000.pkl',
                         help='path for trained encoder')
-    parser.add_argument('--decoder_path', type=str, default='../models/decoder-4-3000.pkl',
+    parser.add_argument('--decoder_path', type=str, default='./models/decoder-4-3000.pkl',
                         help='path for trained decoder')
-    parser.add_argument('--vocab_path', type=str, default='../data/vocab.pkl',
+    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
                         help='path for vocabulary wrapper')
     
     # Model parameters (should be same as paramters in train.py)
