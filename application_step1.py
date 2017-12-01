@@ -14,7 +14,7 @@ from flask import make_response
 import requests
 from build_vocab import Vocabulary
 import pickle
-from step_1 import encode, decode
+from step_1 import encode, decode, decode_word
 from model import EncoderCNN, DecoderRNN
 import torch
 
@@ -53,6 +53,13 @@ def showStep1():
     image = session.query(Input).filter_by(id = 1).one()
     return render_template('step1.html',image=image)
 
+
+@app.route('/demo/nextword')
+def showNextWord():
+    image = session.query(Input).filter_by(id = 1).one()
+    return render_template('step1_nextword.html',image=image)
+
+
 @app.route('/demo/step1/test',methods=['GET','POST'])
 def extractFeature():
     if request.method == 'GET':
@@ -75,6 +82,36 @@ def extractFeature():
             image.translation = sentence
             return render_template('caption.html',image=image)
 
+
+@app.route('/demo/nextword/test',methods=['GET','POST'])
+def extractFeature_nextword():
+    if request.method == 'GET':
+        image = session.query(Input).filter_by(id = 1).one()
+        feature = encode("."+image.name,vocab)
+        gv["feature"]=feature
+        sentence = decode(feature,[],decoder,vocab)
+        print sentence
+        image.translation = sentence
+        return render_template('caption_nextword.html',image=image)
+    else:
+        if request.form['hint']:
+            hints = []
+            hints.append(vocab.word2idx["<start>"])
+            image = session.query(Input).filter_by(id = 1).one()
+            for word in (request.form['hint']).split():
+                hints.append(vocab.word2idx[word])
+            sentence = decode(gv["feature"],hints,decoder,vocab)
+            print sentence
+            image.translation = sentence
+            return render_template('caption_nextword.html',image=image)
+@app.route('/_find_next_word')
+def findnword():
+    print "findnword"
+    hints=[]
+    sentence = request.args.get('sentence', 0, type=str)
+    for word in sentence.split():
+        hints.append(vocab.word2idx[word])
+    return jsonify(next_word=(decode_word(gv["feature"],hints,decoder,vocab)))
 
 if __name__ == '__main__':
   app.secret_key = 'super_secret_key'

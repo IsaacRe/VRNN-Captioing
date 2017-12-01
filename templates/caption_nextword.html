@@ -1,0 +1,82 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+
+	<div class="row divider blue">
+		<div class="col-md-12"></div>
+	</div>
+	<div class="row banner main">
+		<div class="col-md-2"></div>
+		<div class="col-md-10 padding-none">
+			<h1>Image Captioning Autocompletion</h1>
+		</div>
+	</div>
+
+	<div class="row padding-top padding-bottom">
+	</div>
+
+	<div class="container">
+		<div class="row">
+			<div class="col-md-4">
+				<h2>Current sentence:</h2>
+				<h3>{{image.translation}}
+			</div>
+			<div class="col-md-4">
+				<img src="{{image.name}}" align="middle">
+			</div>
+			<div class="col-md-4">
+				<h2>Reference:</h2>
+				<h3>{{image.ground_true}}</h3>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-md-offset-3 padding-top">
+				<form action="#" method = "post">
+					<div class="form-group">
+						<label for="name">Hints:</label>
+						<input id = "myInput" type ="text" maxlength="100" class="form-control" name="hint">
+					</div>
+					<button type="submit" class="btn btn-default" id="submit" type="submit">
+					<span class="glyphicon glyphicon-ok" aria-hidden="true"></span>Translate Again</button>
+				</form>
+			</div>
+		</div>
+
+		
+	</div>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js">
+	</script>
+	<script>
+		var typingTimer;                //timer identifier
+		var doneTypingInterval = 2000;  //time in ms, 5 second for example
+		var $input = $('#myInput');
+
+		var submit_form = function(e) {
+	      $.getJSON($SCRIPT_ROOT + '/_find_next_word', {
+	        sentence: $input.val()
+	      }, function(data) {
+	        // $('#result').text(data.next_word);
+	        alert(data.next_word);
+	      });
+	      return false;
+	    };
+
+		//on keyup, start the countdown
+		$input.on('keyup', function () {
+		  clearTimeout(typingTimer);
+		  typingTimer = setTimeout(doneTyping, doneTypingInterval);
+		});
+
+		//on keydown, clear the countdown 
+		$input.on('keydown', function () {
+		  clearTimeout(typingTimer);
+		});
+
+		//user is "finished typing," do something
+		function doneTyping () {
+			// var x = document.getElementById("myInput").value;
+			alert("donetyping");
+			submit_form();
+		}
+	</script>
+{% endblock %}
