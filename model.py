@@ -54,7 +54,9 @@ class DecoderRNN(nn.Module):
         hiddens, _ = self.lstm(packed_gt)
         out_1 = self.linear(hiddens[0])
         embeddings_pred = pad_packed_sequence((out_1[0],hiddens[1]))[0].max(1)[1][:-1].detach()
-        packed_pred = pack_padded_sequence(embeddings, [l-1 for l in lengths], batch_first=True)
+        print(embeddings_pred.size(),embeddings.size(),len(lengths))
+        packed_pred = pack_padded_sequence(embeddings_pred, [l-1 for l in lengths], batch_first=True)
+        
         hiddens_pred, _ = self.lstm(packed_pred)
         out_0 = self.linear(hiddens_pred[0])
         return out_0, out_1
