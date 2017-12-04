@@ -80,7 +80,6 @@ def main(args):
     with open(args.vocab_path, 'rb') as f:
         vocab = pickle.load(f)
 
-    
     # Build Models
     encoder = EncoderCNN(args.embed_size)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
@@ -95,7 +94,6 @@ def main(args):
     # Prepare Image
     image = load_image(args.image, transform)
     image_tensor = to_var(image, volatile=True)
-    
     # If use gpu
     if torch.cuda.is_available():
         encoder.cuda()
@@ -123,7 +121,7 @@ def main(args):
                 BLEUscore = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
                 print "Current BLEU score is "+str(BLEUscore)
                 word = raw_input("next word:\n")
-                word_idx = vocab.word2idx[word]
+                word_idx = vocab.word2idx[word.lower()]
                 teach_wordid.append(word_idx)
                 sentence = decode(feature,teach_wordid,decoder,vocab)
                 print "###################################################\n"

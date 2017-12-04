@@ -49,6 +49,23 @@ class CocoDataset(data.Dataset):
         target = torch.Tensor(caption)
         return image, target
 
+    def retrieve(self,index):
+        coco = self.coco
+        vocab = self.vocab
+        ann_id = self.ids[index]
+        caption = coco.anns[ann_id]['caption']
+        img_id = coco.anns[ann_id]['image_id']
+        path = coco.loadImgs(img_id)[0]['file_name']
+
+        # Convert caption (string) to word ids.
+        # tokens = nltk.tokenize.word_tokenize(str(caption).lower())
+        # caption = []
+        # caption.append(vocab('<start>'))
+        # caption.extend([vocab(token) for token in tokens])
+        # caption.append(vocab('<end>'))
+        # target = torch.Tensor(caption)
+        return path, caption
+        
     def __len__(self):
         return len(self.ids)
 
