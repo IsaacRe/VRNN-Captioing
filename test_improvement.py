@@ -1,4 +1,5 @@
 import argparse
+import nltk
 import torch
 import torch.nn as nn
 import numpy as np
@@ -34,13 +35,16 @@ def main(args):
     
     # Build data loader
     data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
-                             transform, args.batch_size,
+                             transform, 1,
                              shuffle=True, num_workers=args.num_workers) 
 
     # Find pretrained models to use
     filenames_split = [filename.split('-') for filename in os.listdir(args.model_path)]
     encoder_states = [f[1] + f[2][0] for f in filenames_split if 'encoder' in f[0]]
     decoder_states = [f[1] + f[2][0] for f in filenames_split if 'decoder' in f[0]]
+    if encoder_states == [] or decoder_states == []:
+        print("No models found in {} .".format(args.model_path))
+        return
     encoder_max = str(np.max(np.array(encoder_states,dtype=int)))
     decoder_max = str(np.max(np.array(decoder_states,dtype=int)))
 
@@ -64,46 +68,63 @@ def main(args):
         encoder.cuda()
         decoder.cuda()
 
-    # Test
-    total_step = len(data_loader)
-    for epoch in range(args.num_epochs):
-        for i, (images, captions, lengths) in enumerate(data_loader):
-            
-            # Set mini-batch dataset
-            images = to_var(images, volatile=True)
-            print captions
-            captions = to_var(captions)
-            targets_1 = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-            targets_0 = pack_padded_sequence(captions[:,:-1], [l-1 for l in lengths], batch_first=True)[0]
-            
-            # Forward, Backward and Optimize
-            decoder.zero_grad()
-            encoder.zero_grad()
-            features = encoder(images)
-            out_0, out_1 = decoder(features, captions, lengths)
-            loss_1 = criterion(out_1, targets_1)
-            loss_0 = criterion(out_0.detach(), targets_0)
-            loss = constrain_loss(loss_1 - args.theta*loss_0)
-            print loss
-            
-            loss.backward()
-            optimizer.step()
+    criterion = nn.CrossEntropyLoss()
 
-            # Print log info
-            if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
-                      %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]))) 
-                
-            # Save the models
-            if (i+1) % args.save_step == 0:
-                torch.save(decoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'decoder-%d-%d-diff.pkl' %(epoch+1, i+1)))
-                torch.save(encoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'encoder-%d-%d-diff.pkl' %(epoch+1, i+1)))
-                
+    # Test
+    for i, (images, captions, lengths) in enumerate(data_loader):
+        
+        if i > args.num_iters:
+            break
+        
+        # Set mini-batch dataset
+        images = to_var(images, volatile=True)
+        print captions
+        captions = to_var(captions, volatile=True)
+        
+        # Iterate through sequence
+        losses = []
+        bleu_scores = []
+        partial_bleu_scores = []
+        
+        features = encoder(images)
+        
+        sequences, lin_outs = decoder.test(features, captions, lengths[0])
+        lin_outs = lin_outs.cuda()
+        # Calculate loss for current predicted item in sequence
+        for j in range(lengths[0]):
+            if j < lengths[0] - 1:
+                loss = (criterion(lin_outs[j,0], captions[:,j]), criterion(lin_outs[j,1], captions[:,j]))
+                losses.append(loss)
+
+            # Get predicted and ground truth sentences
+            partial_sentence = [vocab.idx2word[w.data[0]] for w in sequences[j]]
+            full_sentence = ' '.join(partial_sentence)
+            if j > 0:
+                full_sentence = ' '.join([vocab.idx2word[w.data[0]] for w in captions[0,:j]]) + ' ' + full_sentence
+            full_sentence = full_sentence.split()
+            partial_gt = [vocab.idx2word[w.data[0]] for w in captions[0,j:]]
+            full_gt = [vocab.idx2word[w.data[0]] for w in captions[0]]
+
+            bleu_score = nltk.translate.bleu_score.sentence_bleu([full_gt],full_sentence)
+            partial_bleu_score = nltk.translate.bleu_score.sentence_bleu([partial_gt],partial_sentence)
+            bleu_scores.append(bleu_score)
+            partial_bleu_scores.append(partial_bleu_score)
+
+        print("Iteration {}:".format(i))
+        print("Ground truth sentence: {}".format(full_gt))
+
+        print("Comparing loss:")
+        for l in losses:
+            print("{} {}".format(l[0].data[0],l[1].data[0]))
+           
+        print("Comparing bleu scores:")
+        for b in bleu_scores:
+            print(b)
+
+        print("Comparing partial bleu scores:")
+        for b in partial_bleu_scores:
+            print(b)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default='./models/' ,
@@ -121,7 +142,9 @@ if __name__ == '__main__':
                         help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=1000,
                         help='step size for saving trained models')
-    
+    parser.add_argument('--num_iters', type=int , default=1000,
+                        help='number of samples on which to test performance')
+
     # Model parameters
     parser.add_argument('--theta', type=float , default=0.4,
                         help='value of theta used in calculating difference in losses')
