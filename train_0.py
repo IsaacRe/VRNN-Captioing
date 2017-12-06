@@ -38,10 +38,50 @@ def main(args):
     data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers) 
+    start_epoch = 0
 
-    # Build the models
-    encoder = EncoderCNN(args.embed_size)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+    if not args.restart:
+        # Find pretrained models to use
+        filenames_split = [filename.split('-') for filename in os.listdir(args.model_path)]
+
+        if args.encoder == '':
+            encoder_states = [f[1] + f[2][0] for f in filenames_split if 'encoder' in f[0]]
+            if encoder_states == []:
+                print("No encoder models found in {} .".format(args.model_path))
+                return
+            encoder_max = str(np.max(np.array(encoder_states,dtype=int)))
+            encoder_state = 'encoder-{}-{}000.pkl'.format(encoder_max[0],encoder_max[1])
+        else:
+            encoder_state = args.encoder
+
+        if args.decoder == '':
+            decoder_states = [f[1] + f[2][0] for f in filenames_split if 'decoder' in f[0]]
+            if decoder_states == []:
+                print("No decoder models found in {} .".format(args.model_path))
+                return
+            decoder_max = str(np.max(np.array(decoder_states,dtype=int)))
+            decoder_state = 'decoder-{}-{}000.pkl'.format(decoder_max[0],decoder_max[1])
+        else:
+            decoder_state = args.decoder
+            
+        start_epoch = int(decoder_state.split('-')[1])
+
+        print("Using encoder: {}".format(encoder_state))
+        print("Using decoder: {}".format(decoder_state))
+
+        # Build the models
+        encoder = EncoderCNN(args.embed_size)
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+                             len(vocab), args.num_layers)
+        
+        # Load the trained model parameters
+        encoder.load_state_dict(torch.load(args.model_path + encoder_state))
+        decoder.load_state_dict(torch.load(args.model_path + decoder_state))
+
+    else:
+        # Build the models
+        encoder = EncoderCNN(args.embed_size)
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
                          len(vocab), args.num_layers)
     
     if torch.cuda.is_available():
@@ -55,7 +95,8 @@ def main(args):
     
     # Train the Models
     total_step = len(data_loader)
-    for epoch in range(args.num_epochs):
+
+    for epoch in range(start_epoch, args.num_epochs):
         for i, (images, captions, lengths) in enumerate(data_loader):
             
             # Set mini-batch dataset
@@ -107,7 +148,18 @@ if __name__ == '__main__':
                         help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=1000,
                         help='step size for saving trained models')
-    
+    parser.add_argument('--restart', type=bool , default=True,
+                        help='whether to restart the epoch-batch counter \
+                                for the training process. If False, training \
+                                will cap at num-epochs.')
+    parser.add_argument('--encoder', type=str , default='',
+                        help='specify the encoder parameter file to begin training \
+                                from. If not specified, will choose most recent.')
+    parser.add_argument('--decoder', type=str , default='',
+                        help='specify the decoder parameter file to begin training \
+                                from. If not specified, will choose most recent.')
+
+
     # Model parameters
     parser.add_argument('--embed_size', type=int , default=256 ,
                         help='dimension of word embedding vectors')
