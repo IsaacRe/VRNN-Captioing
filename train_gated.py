@@ -10,6 +10,7 @@ from model import EncoderCNN, DecoderRNN
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
+from CrossEntropyLoss import CrossEntropyLoss# Copied from pytorch source
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -89,7 +90,8 @@ def main(args):
         decoder.cuda()
 
     # Loss and Optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = CrossEntropyLoss(reduce=False)
+    gate = nn.ReLU()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
     
@@ -103,14 +105,16 @@ def main(args):
             images = to_var(images, volatile=True)
             print captions
             captions = to_var(captions)
-            targets = pack_padded_sequence(captions[:,:-1], [l-1 for l in lengths], batch_first=True)[0]
+            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            targets_0 = pack_padded_sequence(captions[:,:-1], [l-1 for l in lengths], batch_first=True)[0]
             
             # Forward, Backward and Optimize
             decoder.zero_grad()
-            encoder.zero_grad()
             features = encoder(images)
-            out, _ = decoder(features, captions, lengths)
-            loss = criterion(out, targets)
+            out_0, out = decoder(features.detach(), captions, lengths)
+            losses = torch.nn.functional.cross_entropy(out, targets)
+            losses_0 = torch.nn.functional.cross_entropy(out_0.detach(), targets_0)
+            loss = torch.sum(gate(losses - losses_0*args.alpha))
             print loss
             
             loss.backward()
@@ -152,7 +156,7 @@ if __name__ == '__main__':
                         help='whether to restart the epoch-batch counter \
                                 for the training process. If False, training \
                                 will cap at num-epochs.')
-    parser.add_argument('--encoder', type=str , default='',
+    parser.add_argument('--encoder', type=str , default='./models/encoder_pretrained.pkl',
                         help='specify the encoder parameter file to begin training \
                                 from. If not specified, will choose most recent.')
     parser.add_argument('--decoder', type=str , default='',
@@ -172,6 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--alpha', type=float, default=0.45)
     args = parser.parse_args()
     print(args)
     main(args)
