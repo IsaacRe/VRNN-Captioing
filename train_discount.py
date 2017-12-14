@@ -6,7 +6,7 @@ import os
 import pickle
 from data_loader import get_loader 
 from build_vocab import Vocabulary
-from model_new import EncoderCNN, DecoderRNN 
+from model import EncoderCNN, DecoderRNN 
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
@@ -42,38 +42,55 @@ def main(args):
                              shuffle=True, num_workers=args.num_workers) 
     start_epoch = 0
 
-    encoder_state = args.encoder
-    decoder_state = args.decoder
-    
-    # Build the models
-    encoder = EncoderCNN(args.embed_size)
-    if not args.train_encoder:
-        encoder.eval()
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                         len(vocab), args.num_layers)
-    
-    if args.restart:
-        encoder_state, decoder_state = 'new', 'new'
+    encoder_state = 'new'
+    decoder_state = 'new'
+    if not args.restart:
+        # Find pretrained models to use
+        filenames_split = [filename.split('-') for filename in os.listdir(args.model_path)]
 
-    if encoder_state == '': encoder_state = 'new'
-    if decoder_state == '': decoder_state = 'new'
+        if args.encoder == '':
+            encoder_states = [f[1] + f[2][0] for f in filenames_split if 'encoder' in f[0]]
+            if encoder_states == []:
+                print("No encoder models found in {} .".format(args.model_path))
+                return
+            encoder_max = str(np.max(np.array(encoder_states,dtype=int)))
+            encoder_state = 'encoder-{}-{}000.pkl'.format(encoder_max[0],encoder_max[1])
+        else:
+            encoder_state = args.encoder
 
-    if decoder_state != 'new':
+        if args.decoder == '':
+            decoder_states = [f[1] + f[2][0] for f in filenames_split if 'decoder' in f[0]]
+            if decoder_states == []:
+                print("No decoder models found in {} .".format(args.model_path))
+                return
+            decoder_max = str(np.max(np.array(decoder_states,dtype=int)))
+            decoder_state = 'decoder-{}-{}000.pkl'.format(decoder_max[0],decoder_max[1])
+        else:
+            decoder_state = args.decoder
+            
         start_epoch = int(decoder_state.split('-')[1])
 
-    print("Using encoder: {}".format(encoder_state))
-    print("Using decoder: {}".format(decoder_state))
+        print("Using encoder: {}".format(encoder_state))
+        print("Using decoder: {}".format(decoder_state))
 
+        # Build the models
+        encoder = EncoderCNN(args.embed_size)
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+                             len(vocab), args.num_layers)
         
-    # Load the trained model parameters
-    if encoder_state != 'new':
-        encoder.load_state_dict(torch.load(encoder_state))
-    if decoder_state != 'new':
-        decoder.load_state_dict(torch.load(decoder_state))
+        # Load the trained model parameters
+        encoder.load_state_dict(torch.load(args.model_path + encoder_state))
+        decoder.load_state_dict(torch.load(args.model_path + decoder_state))
+
+    else:
+        # Build the models
+        encoder = EncoderCNN(args.embed_size)
+        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+                         len(vocab), args.num_layers)
     
     """ Make logfile and log output """
     with open(args.model_path + args.logfile, 'a+') as f:
-        f.write("Training on gated loss (log difference: {}). Started {} .\n".format(args.log, str(datetime.now())))
+        f.write("Training on discounted loss (division: {}). Started {} .\n".format(args.divide, str(datetime.now())))
         f.write("Using encoder: {}\nUsing decoder: {}\n\n".format(encoder_state, decoder_state))
     
     if torch.cuda.is_available():
@@ -82,20 +99,15 @@ def main(args):
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss(reduce=False)
-    gate = nn.ReLU()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
     
     # Train the Models
     total_step = len(data_loader)
-    alpha = args.initial_a
-    delta_a = args.delta_a
 
-    alpha_updates = []
-    batch_loss = []
     for epoch in range(start_epoch, args.num_epochs):
         for i, (images, captions, lengths) in enumerate(data_loader):
-            print("Training with gradient gating (log difference: {}). Current Epoch: {}".format(args.log, epoch))
+            print("Training with discounting (divide: {}). Current Epoch: {}".format(args.divide, epoch))
 
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
@@ -105,82 +117,37 @@ def main(args):
             
             # Forward, Backward and Optimize
             decoder.zero_grad()
-            if not args.train_encoder:
-                features = encoder(images).detach()
-                print('Only Training Decoder!!!!!!!')
-            else:
-                features = encoder(images)
-            out_0, out = decoder(features, captions, lengths)
+            features = encoder(images)
+            out_0, out = decoder(features.detach(), captions, lengths)
             losses = criterion(out, targets)
-            losses_0 = criterion(out_0.detach(), targets)
-
-            mask = np.where((losses.cpu().data.numpy()*(1+alpha) - losses_0.cpu().data.numpy()) > 0)[0]
-            # If no samples pass
-            if mask.shape[0] == 0:
-                message = 'Alpha: {}\nDelta_A: {}\nNo samples passed gradient gate!!!!\n \
-                        Updating alpha and skipping...'.format(alpha, delta_a)
-                print(message)
-                with open(args.model_path + args.logfile, 'a') as f:
-                    f.write(message + '\n')
-                alpha += delta_a
-                alpha_updates.append(delta_a)
-                continue                
-
-            mask = torch.LongTensor(mask) # Mask for the losses we will keep
-            loss = torch.sum(losses[mask.cuda()]) / mask.size(0)
+            losses_0 = criterion(out_0, targets)
             
             # Calculate ratio of samples passing loss
-            ratio = float(mask.size(0)) / losses.size(0)
-            print("Ratio of samples passing gradient: {}".format(ratio))
-            print("Current Alpha: {}".format(alpha))
-            print("Current Delta_A: {}".format(delta_a))
+            discounted = losses / losses_0 / args.alpha if args.divide \
+                    else losses - losses_0*args.alpha
 
-            # Update alpha
-            if ratio < args.pass_ratio - args.pass_margin:
-                alpha += delta_a
-                alpha_updates.append(delta_a)
-            elif ratio > args.pass_ratio + args.pass_margin and alpha > delta_a:
-                alpha -= delta_a
-                alpha_updates.append(-delta_a)
-            else:
-                # Reset if we didn't update alpha this iteration
-                alpha_updates = []
-
-            # Choose how to change delta_a
-            if len(alpha_updates) > args.a_log_length:
-                alpha_updates.remove(alpha_updates[0]) # Only look at last 10 updates
-            if np.abs(np.sum(alpha_updates)) < delta_a and len(alpha_updates) == args.a_log_length:
-                if delta_a / 2 > 0:
-                    delta_a /= 2 # If we can't get enough precision with current delta_a, make it smaller
-                alpha_updates = []
-            elif np.abs(np.sum(alpha_updates)) > delta_a*(args.a_log_length - 1):
-                delta_a *= 2 # If we can't update fast enough, make delta_a larger
-                alpha_updates = []
-                
-            
             print("Max loss: {}".format(torch.max(losses)))
             print("Max loss0: {}".format(torch.max(losses_0)))
 
             print("Min loss: {}".format(torch.min(losses)))
             print("Min loss0: {}".format(torch.min(losses_0)))
 
+            loss = torch.sum(discounted) / discounted.size(0)
             print loss
-            batch_loss.append(loss.data[0])
 
             loss.backward()
             optimizer.step()
 
             # Print log info
             if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Alpha: %.4f'
+                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
                       %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]), sig(alpha))) 
+                        loss.data[0], np.exp(loss.data[0]))) 
                 
                 with open(args.model_path + args.logfile, 'a') as f:
-                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, \
-                            Alpha: %.4f, Ratio: %.2f\n'
+                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f\n'
                           %(epoch, args.num_epochs, i, total_step, 
-                            loss.data[0], np.exp(loss.data[0]), sig(alpha), ratio)) 
+                            loss.data[0], np.exp(loss.data[0]))) 
 
             # Save the models
             if (i+1) % args.save_step == 0:
@@ -190,9 +157,6 @@ def main(args):
                 torch.save(encoder.state_dict(), 
                            os.path.join(args.model_path, 
                                         'encoder-%d-%d.pkl' %(epoch+1, i+1)))
-                with open(args.model_path + 'training_loss.pkl', 'wb+') as f:
-                    pickle.dump(batch_loss, f)
-
     with open(args.model_path + args.logfile, 'a') as f:
         f.write("Training finished at {} .\n\n".format(str(datetime.now())))
                 
@@ -213,7 +177,7 @@ if __name__ == '__main__':
                         help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=1000,
                         help='step size for saving trained models')
-    parser.add_argument('--restart', action='store_true',
+    parser.add_argument('--restart', type=bool , default=True,
                         help='whether to restart the epoch-batch counter \
                                 for the training process. If False, training \
                                 will cap at num-epochs.')
@@ -238,20 +202,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.01)
-    parser.add_argument('--delta_a', type=float, default=1e-5)
-    parser.add_argument('--log', action='store_true',
-                        help='whether to gate based on log difference')
-    parser.add_argument('--initial_a', type=float, default=1e-5,
-                        help='specify desired initial value of alpha')
-    parser.add_argument('--pass_ratio', type=float, default=0.5,
-                        help='specify ratio of samples that should pass loss \
-                                through gate in each batch. When observed ratio is \
-                                greater than the given value, alpha will be updated.')
-    parser.add_argument('--pass_margin', type=float, default=0.05,
-                        help='specify far ratio can diverge from specified pass_ratio \
-                                before alpha is updated')
-    parser.add_argument('--train_encoder', action='store_true')
-    parser.add_argument('--a_log_length', type=int, default=6)
+    parser.add_argument('--divide', action='store_true',
+                        help='whether to discount by division (rather than difference)')
+    parser.add_argument('--alpha', type=float, default=0.5)
     args = parser.parse_args()
     print(args)
     main(args)

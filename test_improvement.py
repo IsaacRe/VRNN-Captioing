@@ -70,6 +70,12 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss()
 
+    loss_gt = [] # The loss of words in sequences when given prior ground truth as input
+    loss_gt_offset = []
+    loss_pred = [] # The loss of words in sequences when given prior predicted word as input
+    loss_pred_offset = []
+    position = [] # The word's position in the sequence, relative to the sequence length
+
     # Test
     for i, (images, captions, lengths) in enumerate(data_loader):
         
@@ -113,9 +119,33 @@ def main(args):
         print("Iteration {}:".format(i))
         print("Ground truth sentence: {}".format(full_gt))
 
+        print("Ground Truth : Predicted (gt input) : Predicted (pred input)")
+        for i in range(1, len(sequences)):
+            print("{} : {} : {}".format(vocab.idx2word[captions[0,i].data[0]],
+                                        vocab.idx2word[sequences[i][0].data[0]],
+                                        vocab.idx2word[sequences[i-1][1].data[0]]))
+
         print("Comparing loss:")
-        for l in losses:
-            print("{} {}".format(l[0].data[0],l[1].data[0]))
+        for i in range(len(losses)):
+            print("{} {}".format(losses[i][0].data[0],losses[i][1].data[0]))
+            if i == 0:
+                loss_gt_offset.append(losses[i][0].data[0])
+                loss_pred_offset.append(losses[i+1][1].data[0])
+                if args.use_first:
+                    loss_gt.append(losses[i][0].data[0])
+                    loss_pred.append(losses[i][1].data[0])
+                    position.append(float(i) / len(losses))
+            elif i == len(losses) - 1:
+                if args.use_last:
+                    loss_gt.append(losses[i][0].data[0])
+                    loss_pred.append(losses[i][1].data[0])
+                    position.append(float(i) / len(losses))
+            else:
+                loss_gt_offset.append(losses[i][0].data[0])
+                loss_pred_offset.append(losses[i+1][1].data[0])
+                loss_gt.append(losses[i][0].data[0])
+                loss_pred.append(losses[i][1].data[0])
+                position.append(float(i) / len(losses))
            
         print("Comparing bleu scores:")
         for b in bleu_scores:
@@ -124,6 +154,30 @@ def main(args):
         print("Comparing partial bleu scores:")
         for b in partial_bleu_scores:
             print(b)
+
+        if i % args.save_step == 0:
+            with open(args.model_path + 'loss_gt_input.pkl', 'wb+') as f:
+                pickle.dump(loss_gt, f)
+            with open(args.model_path + 'loss_pred_input.pkl', 'wb+') as f:
+                pickle.dump(loss_pred, f)
+            with open(args.model_path + 'word_positions.pkl', 'wb+') as f:
+                pickle.dump(position, f)
+            with open(args.model_path + 'loss_independent.pkl', 'wb+') as f:
+                pickle.dump(loss_gt_offset, f)
+            with open(args.model_path + 'loss_dependent.pkl', 'wb+') as f:
+                pickle.dump(loss_pred_offset, f)
+
+    with open(args.model_path + 'loss_gt_input.pkl', 'wb+') as f:
+        pickle.dump(loss_gt, f)
+    with open(args.model_path + 'loss_pred_input.pkl', 'wb+') as f:
+        pickle.dump(loss_pred, f)
+    with open(args.model_path + 'word_positions.pkl', 'wb+') as f:
+        pickle.dump(position, f)
+    with open(args.model_path + 'loss_independent.pkl', 'wb+') as f:
+        pickle.dump(loss_gt_offset, f)
+    with open(args.model_path + 'loss_dependent.pkl', 'wb+') as f:
+        pickle.dump(loss_pred_offset, f)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -140,10 +194,12 @@ if __name__ == '__main__':
                         help='path for train annotation json file')
     parser.add_argument('--log_step', type=int , default=10,
                         help='step size for prining log info')
-    parser.add_argument('--save_step', type=int , default=1000,
+    parser.add_argument('--save_step', type=int , default=500,
                         help='step size for saving trained models')
-    parser.add_argument('--num_iters', type=int , default=1000,
+    parser.add_argument('--num_iters', type=int , default=5000,
                         help='number of samples on which to test performance')
+    parser.add_argument('--use_first', action='store_true')
+    parser.add_argument('--use_last', action='store_true')
 
     # Model parameters
     parser.add_argument('--theta', type=float , default=0.4,
@@ -156,9 +212,7 @@ if __name__ == '__main__':
                         help='number of layers in lstm')
     
     parser.add_argument('--num_epochs', type=int, default=5)
-    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
-    parser.add_argument('--learning_rate', type=float, default=0.001)
     args = parser.parse_args()
     print(args)
     main(args)

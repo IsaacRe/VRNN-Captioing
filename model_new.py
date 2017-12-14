@@ -50,16 +50,21 @@ class DecoderRNN(nn.Module):
         """ Decode image feature vectors and generates captions. """
         embeddings = self.embed(captions)
         embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        packed_gt = pack_padded_sequence(embeddings, lengths, batch_first=True) # (batch_size*lengths, embedding_size)
-        hiddens, states = self.lstm(packed_gt) # (batch_size*lengths, hidden_size)
-        out_1 = self.linear(hiddens[0]) # (batch_size*lengths, vocab_size)
-        embeddings_pred = pad_packed_sequence((out_1, hiddens[1]), batch_first=True)[0]
-        # We unpack to remove last index, embed and re-pack
-        embeddings_pred = self.embed(embeddings_pred[:,:-1].max(2)[1]) # (batch_size, max_length - 1, embedding_size)
-        embeddings_pred = torch.cat((features.unsqueeze(1), embeddings_pred), 1)
-        packed_pred = pack_padded_sequence(embeddings_pred, lengths, batch_first=True) # (batch_size*(lengths - 1), embedding_size)        
-        hiddens_pred, _ = self.lstm(packed_pred, states) # (batch_size*(lengths - 1), hidden_size)
-        out_0 = self.linear(hiddens_pred[0]) # (batch_size*(lengths - 1), vocab_size)
+        embedding_pred = features.unsqueeze(1)
+        state = None
+        
+        out_1 = []
+        out_0 = []
+        for i in range(embeddings.size(1)):
+            out, _ = self.lstm(embedding_pred, state)
+            out_0.append(out)
+            out, state = self.lstm(embeddings[:,i:i+1], state)
+            out_1.append(out)
+            embedding_pred = self.embed(self.linear(out.squeeze(1)).max(1)[1].unsqueeze(1))
+        out_1 = torch.cat(out_1, 1)
+        out_0 = torch.cat(out_0, 1)
+        out_1 = pack_padded_sequence(out_1, lengths, batch_first=True)[0]
+        out_0 = pack_padded_sequence(out_0, lengths, batch_first=True)[0]
         assert out_0.size() == out_1.size()
         return out_0, out_1
 

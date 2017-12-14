@@ -10,6 +10,7 @@ from model import EncoderCNN, DecoderRNN
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
+from datetime import datetime
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -39,7 +40,8 @@ def main(args):
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers) 
     start_epoch = 0
-
+    encoder_state = 'new'
+    decoder_state = 'new'
     if not args.restart:
         # Find pretrained models to use
         filenames_split = [filename.split('-') for filename in os.listdir(args.model_path)]
@@ -84,6 +86,11 @@ def main(args):
         decoder = DecoderRNN(args.embed_size, args.hidden_size, 
                          len(vocab), args.num_layers)
     
+    """ Make logfile and log output """
+    with open(args.model_path + args.logfile, 'a+') as f:
+        f.write("Training on vanilla loss (using new model). Started {} .\n".format(str(datetime.now())))
+        f.write("Using encoder: {}\nUsing decoder: {}\n\n".format(encoder_state, decoder_state))
+
     if torch.cuda.is_available():
         encoder.cuda()
         decoder.cuda()
@@ -122,6 +129,12 @@ def main(args):
                       %(epoch, args.num_epochs, i, total_step, 
                         loss.data[0], np.exp(loss.data[0]))) 
                 
+                with open(args.model_path + args.logfile, 'a') as f:
+                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f\n'
+                          %(epoch, args.num_epochs, i, total_step, 
+                            loss.data[0], np.exp(loss.data[0]))) 
+
+
             # Save the models
             if (i+1) % args.save_step == 0:
                 torch.save(decoder.state_dict(), 
@@ -130,6 +143,9 @@ def main(args):
                 torch.save(encoder.state_dict(), 
                            os.path.join(args.model_path, 
                                         'encoder-%d-%d.pkl' %(epoch+1, i+1)))
+
+    with open(args.model_path + args.logfile, 'a') as f:
+        f.write("Training finished at {} .\n\n".format(str(datetime.now())))
                 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -158,7 +174,8 @@ if __name__ == '__main__':
     parser.add_argument('--decoder', type=str , default='',
                         help='specify the decoder parameter file to begin training \
                                 from. If not specified, will choose most recent.')
-
+    parser.add_argument('--logfile', type=str , default='logfile',
+                        help='specify the logfile')
 
     # Model parameters
     parser.add_argument('--embed_size', type=int , default=256 ,
