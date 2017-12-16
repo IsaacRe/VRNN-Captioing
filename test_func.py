@@ -71,19 +71,8 @@ def encode(img,vocab):
     return feature
 
 def main(args):   
-    transform = transforms.Compose([
-       transforms.ToTensor(), 
-       transforms.Normalize((0.485, 0.456, 0.406), 
-                            (0.229, 0.224, 0.225))])
     with open('./data/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
-    rt_image = './data/val_resized2014' if args.test_set else './data/resized2014'
-    annotations = './data/annotations/captions_val2014.json' if args.test_set else './data/annotations/captions_train2014.json' 
-    shuffle = False if args.test_set else True
-    data_loader = get_loader(rt_image,
-                  annotations,
-                  vocab,
-                  transform, 1, shuffle, 1)
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
     decoder = DecoderRNN(256, 512, 
@@ -95,6 +84,26 @@ def main(args):
     # Load the trained model parameters
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
+
+    bleu_score_origin, bleu_score_hint = bleu_test_acc(encoder, decoder, vocab, args.num_samples,
+                                                       args.num_hints, args.debug)
+
+    print "bleu score between output and ground true without hint\n"+str(bleu_score_origin)
+    print "bleu score between output and ground true with hint\n"+str(bleu_score_hint)
+    
+def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False):    
+    transform = transforms.Compose([
+       transforms.ToTensor(), 
+       transforms.Normalize((0.485, 0.456, 0.406), 
+                            (0.229, 0.224, 0.225))])
+    rt_image = './data/val_resized2014'
+    annotations = './data/annotations/captions_val2014.json' 
+    shuffle = False
+    data_loader = get_loader(rt_image,
+                  annotations,
+                  vocab,
+                  transform, 1, shuffle, 1)
+    assert len(vocab) == decoder.linear.out_features
     bleu_score_origin=0
     bleu_score_hint=0
     #for i in range(0,len(data_loader)/1000):
@@ -102,13 +111,13 @@ def main(args):
     ref_sentence = 0
     hint = 0
     for i, (image, caption, length) in enumerate(data_loader):
-        if i > args.num_samples:
+        if i > num_samples:
             break
         image_tensor = to_var(image, volatile=True)
         caption = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
         feature = encoder(image_tensor)
         teach_wordid = [vocab.word2idx["<start>"]]
-        for i in range(args.num_hints):
+        for i in range(num_hints):
             teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
         # get the output with one word hint
         origin_sentence = decode(feature,teach_wordid[0:1],decoder,vocab)
@@ -121,19 +130,14 @@ def main(args):
         hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
         hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis_hint)
         bleu_score_hint += hint
-        if args.debug:
+        if debug:
             print("No hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}".format(origin_sentence, hint_sentence, no_hint, hint))
         if hint > max_bleu:
             
             max_bleu = hint
             max_sentence = hint_sentence
             ref_sentence = caption
-
-    print("Max Bleu score: {}\nPredicted: {}\nReference: {}".format(max_bleu, max_sentence, ref_sentence))
-
-    print("Tested on {} samples.".format(i))
-    print "bleu score between output and ground true without hint\n"+str(bleu_score_origin/1000.0)
-    print "bleu score between output and ground true with hint\n"+str(bleu_score_hint/1000.0)
+    return bleu_score_origin/i, bleu_score_hint/i
 
 
 

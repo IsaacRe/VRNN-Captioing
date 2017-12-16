@@ -62,7 +62,7 @@ class DecoderRNN(nn.Module):
         for i in range(20):                                      # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
-            predicted = outputs.max(1)[1]
+            predicted = outputs.max(1)[1].unsqueeze(0)
             if i < len(user_input):
                 predicted = Variable(torch.cuda.LongTensor([[user_input[i]]]))
             sampled_ids.append(predicted)

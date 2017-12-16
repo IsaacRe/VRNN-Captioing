@@ -143,7 +143,8 @@ def main(args):
                 torch.save(encoder.state_dict(), 
                            os.path.join(args.model_path, 
                                         'encoder-%d-%d.pkl' %(epoch+1, i+1)))
-
+            break
+        break
     with open(args.model_path + args.logfile, 'a') as f:
         f.write("Training finished at {} .\n\n".format(str(datetime.now())))
                 
