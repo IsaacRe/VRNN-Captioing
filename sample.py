@@ -7,7 +7,7 @@ import os
 from torch.autograd import Variable 
 from torchvision import transforms 
 from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN
+from model_vanilla import EncoderCNN, DecoderRNN
 from PIL import Image
 
 
@@ -58,7 +58,7 @@ def main(args):
     
     # Generate caption from image
     feature = encoder(image_tensor)
-    sampled_ids = decoder.sample(feature)
+    sampled_ids = decoder.sample(feature, [])
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
