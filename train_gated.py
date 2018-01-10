@@ -140,7 +140,7 @@ def main(args):
             med_loss_diff = np.median(loss_diff)
 
             #mask = np.where((losses.cpu().data.numpy()*(1+alpha) - losses_0.cpu().data.numpy()) > 0)[0]
-            gate = np.where(loss_diff > med_loss_diff)[0]
+            gate = np.where(loss_diff < med_loss_diff)[0]
             # If no samples pass
             if gate.shape[0] == 0:
                 message = 'Alpha: {}\nDelta_A: {}\nNo samples passed gradient gate!!!!\n \

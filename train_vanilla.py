@@ -11,7 +11,7 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from datetime import datetime
-import test_func
+from test import bleu_test_acc
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -113,7 +113,7 @@ def main(args):
             
             # Evaluate the model
             if i % args.val_step == 0:
-                acc, gt_acc = test_func.bleu_test_acc(encoder, decoder, vocab)
+                acc, gt_acc = bleu_test_acc(encoder, decoder, vocab)
                 batch_acc.append((acc, gt_acc))
 
 
