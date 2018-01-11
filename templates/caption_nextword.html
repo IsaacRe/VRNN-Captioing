@@ -46,37 +46,37 @@
 	</div>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js">
 	</script>
-	<script>
-		var typingTimer;                //timer identifier
-		var doneTypingInterval = 2000;  //time in ms, 5 second for example
-		var $input = $('#myInput');
+	// <script>
+	// 	var typingTimer;                //timer identifier
+	// 	var doneTypingInterval = 2000;  //time in ms, 5 second for example
+	// 	var $input = $('#myInput');
 
-		var submit_form = function(e) {
-	      $.getJSON($SCRIPT_ROOT + '/_find_next_word', {
-	        sentence: $input.val()
-	      }, function(data) {
-	        // $('#result').text(data.next_word);
-	        alert(data.next_word);
-	      });
-	      return false;
-	    };
+	// 	var submit_form = function(e) {
+	//       $.getJSON($SCRIPT_ROOT + '/_find_next_word', {
+	//         sentence: $input.val()
+	//       }, function(data) {
+	//         // $('#result').text(data.next_word);
+	//         alert(data.next_word);
+	//       });
+	//       return false;
+	//     };
 
-		//on keyup, start the countdown
-		$input.on('keyup', function () {
-		  clearTimeout(typingTimer);
-		  typingTimer = setTimeout(doneTyping, doneTypingInterval);
-		});
+	// 	//on keyup, start the countdown
+	// 	$input.on('keyup', function () {
+	// 	  clearTimeout(typingTimer);
+	// 	  typingTimer = setTimeout(doneTyping, doneTypingInterval);
+	// 	});
 
-		//on keydown, clear the countdown 
-		$input.on('keydown', function () {
-		  clearTimeout(typingTimer);
-		});
+	// 	//on keydown, clear the countdown 
+	// 	$input.on('keydown', function () {
+	// 	  clearTimeout(typingTimer);
+	// 	});
 
-		//user is "finished typing," do something
-		function doneTyping () {
-			// var x = document.getElementById("myInput").value;
-			alert("donetyping");
-			submit_form();
-		}
-	</script>
+	// 	//user is "finished typing," do something
+	// 	function doneTyping () {
+	// 		// var x = document.getElementById("myInput").value;
+	// 		alert("donetyping");
+	// 		submit_form();
+	// 	}
+	// </script>
 {% endblock %}

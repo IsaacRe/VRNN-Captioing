@@ -54,14 +54,14 @@ def decode_word(feature,user_input,decoder,vocab):
             break
     return sampled_caption
 
-def encode(img,vocab):
+def encode(img,vocab,):
     transform = transforms.Compose([
             transforms.ToTensor(), 
             transforms.Normalize((0.485, 0.456, 0.406), 
                                  (0.229, 0.224, 0.225))])
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
-    encoder.load_state_dict(torch.load('./models/encoder-4-3000.pkl'))
+    encoder.load_state_dict(torch.load('./models/encoder-1-3000.pkl'))
     image = load_image(img, transform)
     image_tensor = to_var(image, volatile=True)
     
@@ -92,7 +92,7 @@ def main(args):
     decoder.load_state_dict(torch.load(args.decoder_path))
 
     # Prepare Image
-    image = load_image(args.image, transform)
+    image = load_image('data/step_1/image_'+args.image+'.jpg', transform)
     image_tensor = to_var(image, volatile=True)
     # If use gpu
     if torch.cuda.is_available():
@@ -108,9 +108,9 @@ def main(args):
 
     if str(user_input) == "n":
         user_input = raw_input("Do you want only next word?(y/n)\n")
+        f = open('data/step_1/caption_'+args.image+'.txt','r')
+        ground_true = f.read().lower()
         if str(user_input) ==  "n":
-            f = open('data/step_1/caption_1.txt','r')
-            ground_true = f.read()
             teach_wordid = []
             teach_wordid.append(vocab.word2idx["<start>"])
             while(True):
@@ -121,13 +121,15 @@ def main(args):
                 BLEUscore = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
                 print "Current BLEU score is "+str(BLEUscore)
                 word = raw_input("next word:\n")
+                if word.lower() not in vocab.word2idx:
+                    print "Word is not in the vocabulary, please try another one!"
+                    continue
                 word_idx = vocab.word2idx[word.lower()]
                 teach_wordid.append(word_idx)
                 sentence = decode(feature,teach_wordid,decoder,vocab)
                 print "###################################################\n"
                 print "Current Translated sentence is: \n"+sentence+"\n"
         elif str(user_input) ==  "y":
-            f = open('data/step_1/caption_1.txt','r')
             ground_true = f.read()
             teach_wordid = []
             teach_word = []
@@ -150,10 +152,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--image_dir', type=str, default='./data/resized2014' ,
+    parser.add_argument('--image_dir', type=str, default='./data/resizedVal2014' ,
                         help='directory for resized images')
     parser.add_argument('--caption_path', type=str,
-                        default='./data/annotations/captions_train2014.json',
+                        default='./data/annotations/captions_val2014.json',
                         help='path for train annotation json file')
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')

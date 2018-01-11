@@ -7,7 +7,7 @@ import os
 from torch.autograd import Variable 
 from torchvision import transforms 
 from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN
+from model_new import EncoderCNN, DecoderRNN
 from PIL import Image
 
 
@@ -58,7 +58,7 @@ def main(args):
     
     # Generate caption from image
     feature = encoder(image_tensor)
-    sampled_ids = decoder.sample(feature)
+    sampled_ids = decoder.sample(feature,[])
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -78,9 +78,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')
-    parser.add_argument('--encoder_path', type=str, default='./models/encoder-4-3000.pkl',
+    parser.add_argument('--encoder_path', type=str, default='./models/encoder-1-1000.pkl',
                         help='path for trained encoder')
-    parser.add_argument('--decoder_path', type=str, default='./models/decoder-4-3000.pkl',
+    parser.add_argument('--decoder_path', type=str, default='./models/decoder-1-1000.pkl',
                         help='path for trained decoder')
     parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
                         help='path for vocabulary wrapper')
