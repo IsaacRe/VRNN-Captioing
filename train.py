@@ -11,6 +11,7 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from datetime import datetime
+from test import bleu_test_acc
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -22,6 +23,11 @@ def main(args):
     if not os.path.exists(args.model_path):
         os.makedirs(args.model_path)
     
+    # Load vocabulary wrapper.
+    with open(args.vocab_path, 'rb') as f:
+        vocab = pickle.load(f)
+    
+    
     # Image preprocessing
     # For normalization, see https://github.com/pytorch/vision#models
     transform = transforms.Compose([ 
@@ -30,67 +36,45 @@ def main(args):
         transforms.ToTensor(), 
         transforms.Normalize((0.485, 0.456, 0.406), 
                              (0.229, 0.224, 0.225))])
+    val_loader = get_loader('./data/val_resized2014/', './data/annotations/captions_val2014.json',
+                             vocab, transform, 1, False, 1)
+
+    start_epoch = 0
+
+    encoder_state = args.encoder
+    decoder_state = args.decoder
     
-    # Load vocabulary wrapper.
-    with open(args.vocab_path, 'rb') as f:
-        vocab = pickle.load(f)
+    # Build the models
+    encoder = EncoderCNN(args.embed_size)
+    if not args.train_encoder:
+        encoder.eval()
+    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+                         len(vocab), args.num_layers)
+    
+    if args.restart:
+        encoder_state, decoder_state = 'new', 'new'
+
+    if encoder_state == '': encoder_state = 'new'
+    if decoder_state == '': decoder_state = 'new'
+
+    if decoder_state != 'new':
+        start_epoch = int(decoder_state.split('-')[1])
+
+    print("Using encoder: {}".format(encoder_state))
+    print("Using decoder: {}".format(decoder_state))
+
+        
     
     # Build data loader
     data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers) 
-    start_epoch = 0
-    encoder_state = 'new'
-    decoder_state = 'new'
-    if not args.restart:
-        # Find pretrained models to use
-        filenames_split = [filename.split('-') for filename in os.listdir(args.model_path)]
 
-        if args.encoder == '':
-            encoder_states = [f[1] + f[2][0] for f in filenames_split if 'encoder' in f[0]]
-            if encoder_states == []:
-                print("No encoder models found in {} .".format(args.model_path))
-                return
-            encoder_max = str(np.max(np.array(encoder_states,dtype=int)))
-            encoder_state = 'encoder-{}-{}000.pkl'.format(encoder_max[0],encoder_max[1])
-        else:
-            encoder_state = args.encoder
-
-        if args.decoder == '':
-            decoder_states = [f[1] + f[2][0] for f in filenames_split if 'decoder' in f[0]]
-            if decoder_states == []:
-                print("No decoder models found in {} .".format(args.model_path))
-                return
-            decoder_max = str(np.max(np.array(decoder_states,dtype=int)))
-            decoder_state = 'decoder-{}-{}000.pkl'.format(decoder_max[0],decoder_max[1])
-        else:
-            decoder_state = args.decoder
-            
-        start_epoch = int(decoder_state.split('-')[1])
-
-        print("Using encoder: {}".format(encoder_state))
-        print("Using decoder: {}".format(decoder_state))
-
-        # Build the models
-        encoder = EncoderCNN(args.embed_size)
-        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                             len(vocab), args.num_layers)
-        
-        # Load the trained model parameters
-        encoder.load_state_dict(torch.load(args.model_path + encoder_state))
-        decoder.load_state_dict(torch.load(args.model_path + decoder_state))
-
-    else:
-        # Build the models
-        encoder = EncoderCNN(args.embed_size)
-        decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                         len(vocab), args.num_layers)
-    
     """ Make logfile and log output """
     with open(args.model_path + args.logfile, 'a+') as f:
         f.write("Training on vanilla loss (using new model). Started {} .\n".format(str(datetime.now())))
-        f.write("Using encoder: {}\nUsing decoder: {}\n\n".format(encoder_state, decoder_state))
-
+        f.write("Using encoder: new\nUsing decoder: new\n\n")
+    
     if torch.cuda.is_available():
         encoder.cuda()
         decoder.cuda()
@@ -99,10 +83,12 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
+
+    batch_loss = []
+    batch_acc = []
     
     # Train the Models
     total_step = len(data_loader)
-
     for epoch in range(start_epoch, args.num_epochs):
         for i, (images, captions, lengths) in enumerate(data_loader):
             
@@ -116,25 +102,32 @@ def main(args):
             decoder.zero_grad()
             encoder.zero_grad()
             features = encoder(images)
-            _, out = decoder(features, captions, lengths)
+            out = decoder(features, captions, lengths)
             loss = criterion(out, targets)
             print loss
             
+            batch_loss.append(loss.data[0])
+            
             loss.backward()
             optimizer.step()
+            
+            # Evaluate the model
+            if i % args.val_step == 0:
+                acc, gt_acc = bleu_test_acc(encoder, decoder, vocab)
+                batch_acc.append((acc, gt_acc))
+
 
             # Print log info
             if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
+                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f'
                       %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]))) 
+                        loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
                 
                 with open(args.model_path + args.logfile, 'a') as f:
-                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f\n'
+                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f\n'
                           %(epoch, args.num_epochs, i, total_step, 
-                            loss.data[0], np.exp(loss.data[0]))) 
-
-
+                            loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
+                
             # Save the models
             if (i+1) % args.save_step == 0:
                 torch.save(decoder.state_dict(), 
@@ -143,9 +136,13 @@ def main(args):
                 torch.save(encoder.state_dict(), 
                            os.path.join(args.model_path, 
                                         'encoder-%d-%d.pkl' %(epoch+1, i+1)))
-
+                with open(args.model_path + 'training_loss.pkl', 'w+') as f:
+                    pickle.dump(batch_loss, f)
+                with open(args.model_path + 'training_val.pkl', 'w+') as f:
+                    pickle.dump(batch_acc, f)
     with open(args.model_path + args.logfile, 'a') as f:
         f.write("Training finished at {} .\n\n".format(str(datetime.now())))
+                
                 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -164,19 +161,9 @@ if __name__ == '__main__':
                         help='step size for prining log info')
     parser.add_argument('--save_step', type=int , default=1000,
                         help='step size for saving trained models')
-    parser.add_argument('--restart', type=bool , default=True,
-                        help='whether to restart the epoch-batch counter \
-                                for the training process. If False, training \
-                                will cap at num-epochs.')
-    parser.add_argument('--encoder', type=str , default='',
-                        help='specify the encoder parameter file to begin training \
-                                from. If not specified, will choose most recent.')
-    parser.add_argument('--decoder', type=str , default='',
-                        help='specify the decoder parameter file to begin training \
-                                from. If not specified, will choose most recent.')
     parser.add_argument('--logfile', type=str , default='logfile',
                         help='specify the logfile')
-
+    
     # Model parameters
     parser.add_argument('--embed_size', type=int , default=256 ,
                         help='dimension of word embedding vectors')
@@ -189,6 +176,11 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.001)
+    parser.add_argument('--encoder', type=str, default='models/encoder_pretrained.pkl')
+    parser.add_argument('--decoder', type=str, default='')
+    parser.add_argument('--restart', action='store_true')
+    parser.add_argument('--train_encoder', action='store_true')
+    parser.add_argument('--val_step', type=int, default=100)
     args = parser.parse_args()
     print(args)
     main(args)

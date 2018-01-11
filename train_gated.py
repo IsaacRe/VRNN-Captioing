@@ -11,7 +11,7 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from datetime import datetime
-from scipy.special import expit as sig
+import test_func
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -40,6 +40,9 @@ def main(args):
     data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers) 
+    val_loader = get_loader('./data/val_resized2014/', './data/annotations/captions_val2014.json',
+                             vocab, transform, 1, False, 1)
+
     start_epoch = 0
 
     encoder_state = args.encoder
@@ -93,6 +96,7 @@ def main(args):
 
     alpha_updates = []
     batch_loss = []
+    batch_acc = []
     for epoch in range(start_epoch, args.num_epochs):
         for i, (images, captions, lengths) in enumerate(data_loader):
             print("Training with gradient gating (log difference: {}). Current Epoch: {}".format(args.log, epoch))
@@ -111,10 +115,13 @@ def main(args):
             else:
                 features = encoder(images)
             out_0, out = decoder(features, captions, lengths)
+
             losses = criterion(out, targets)
+            og_size = losses.size(0)
             losses_0 = criterion(out_0.detach(), targets)
 
-            mask = np.where((losses.cpu().data.numpy()*(1+alpha) - losses_0.cpu().data.numpy()) > 0)[0]
+            # Mask out samples with very low loss
+            mask = np.minimum(np.where(losses.cpu().data.numpy() > args.min_loss)[0] + 1, losses.size(0)-1) # We mask by the loss of the preceeding index to determine if predicted word used as input is far enough from ground truth to expect an improvement
             # If no samples pass
             if mask.shape[0] == 0:
                 message = 'Alpha: {}\nDelta_A: {}\nNo samples passed gradient gate!!!!\n \
@@ -122,65 +129,67 @@ def main(args):
                 print(message)
                 with open(args.model_path + args.logfile, 'a') as f:
                     f.write(message + '\n')
-                alpha += delta_a
-                alpha_updates.append(delta_a)
                 continue                
 
-            mask = torch.LongTensor(mask) # Mask for the losses we will keep
-            loss = torch.sum(losses[mask.cuda()]) / mask.size(0)
+            mask = torch.LongTensor(mask) # Mask for samples with room for improvement
+            losses, losses_0 = losses[mask.cuda()], losses_0[mask.cuda()]
+            
+            print("Ratio passing loss threshold: {}".format(float(losses.size(0)) / og_size))
+
+            loss_diff = (losses / losses_0).cpu().data.numpy() if args.divide else (losses - losses_0).cpu().data.numpy()
+            med_loss_diff = np.median(loss_diff)
+
+            #mask = np.where((losses.cpu().data.numpy()*(1+alpha) - losses_0.cpu().data.numpy()) > 0)[0]
+            gate = np.where(loss_diff < med_loss_diff)[0]
+            # If no samples pass
+            if gate.shape[0] == 0:
+                message = 'Alpha: {}\nDelta_A: {}\nNo samples passed gradient gate!!!!\n \
+                        Updating alpha and skipping...'.format(alpha, delta_a)
+                print(message)
+                with open(args.model_path + args.logfile, 'a') as f:
+                    f.write(message + '\n')
+                continue                
+            
+            gate = torch.LongTensor(gate) # Mask for the losses we will keep 
+            gated = losses[gate.cuda()]
+            loss = torch.sum(gated) / og_size
+            loss_reported = loss.data[0] * og_size / gate.size(0)
             
             # Calculate ratio of samples passing loss
-            ratio = float(mask.size(0)) / losses.size(0)
+            ratio = float(gate.size(0)) / og_size
             print("Ratio of samples passing gradient: {}".format(ratio))
-            print("Current Alpha: {}".format(alpha))
-            print("Current Delta_A: {}".format(delta_a))
 
-            # Update alpha
-            if ratio < args.pass_ratio - args.pass_margin:
-                alpha += delta_a
-                alpha_updates.append(delta_a)
-            elif ratio > args.pass_ratio + args.pass_margin and alpha > delta_a:
-                alpha -= delta_a
-                alpha_updates.append(-delta_a)
-            else:
-                # Reset if we didn't update alpha this iteration
-                alpha_updates = []
 
-            # Choose how to change delta_a
-            if len(alpha_updates) > args.a_log_length:
-                alpha_updates.remove(alpha_updates[0]) # Only look at last 10 updates
-            if np.abs(np.sum(alpha_updates)) < delta_a and len(alpha_updates) == args.a_log_length:
-                if delta_a / 2 > 0:
-                    delta_a /= 2 # If we can't get enough precision with current delta_a, make it smaller
-                alpha_updates = []
-            elif np.abs(np.sum(alpha_updates)) > delta_a*(args.a_log_length - 1):
-                delta_a *= 2 # If we can't update fast enough, make delta_a larger
-                alpha_updates = []
-                
-            
             print("Max loss: {}".format(torch.max(losses)))
             print("Max loss0: {}".format(torch.max(losses_0)))
 
             print("Min loss: {}".format(torch.min(losses)))
             print("Min loss0: {}".format(torch.min(losses_0)))
 
-            print loss
-            batch_loss.append(loss.data[0])
+            print loss_reported
+            batch_loss.append(loss_reported)
 
             loss.backward()
             optimizer.step()
 
+            # Evaluate the model
+            if i % args.val_step == 0:
+                acc, gt_acc = test_func.bleu_test_acc(encoder, decoder, vocab)
+                batch_acc.append((acc, gt_acc))
+
+
             # Print log info
             if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Alpha: %.4f'
+                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Ratio: %.4f, \
+                        Val: %.5f, %.5f'
                       %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]), sig(alpha))) 
+                        loss_reported, np.exp(loss_reported), ratio, acc, gt_acc)) 
                 
                 with open(args.model_path + args.logfile, 'a') as f:
                     f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, \
-                            Alpha: %.4f, Ratio: %.2f\n'
+                            Ratio: %.2f, Val: %.5f, %.5f\n'
                           %(epoch, args.num_epochs, i, total_step, 
-                            loss.data[0], np.exp(loss.data[0]), sig(alpha), ratio)) 
+                            loss_reported, np.exp(loss_reported), ratio, acc, gt_acc)) 
 
             # Save the models
             if (i+1) % args.save_step == 0:
@@ -192,6 +201,10 @@ def main(args):
                                         'encoder-%d-%d.pkl' %(epoch+1, i+1)))
                 with open(args.model_path + 'training_loss.pkl', 'wb+') as f:
                     pickle.dump(batch_loss, f)
+                with open(args.model_path + 'training_val.pkl', 'wb+') as f:
+                    pickle.dump(batch_acc, f)
+
+
 
     with open(args.model_path + args.logfile, 'a') as f:
         f.write("Training finished at {} .\n\n".format(str(datetime.now())))
@@ -225,6 +238,7 @@ if __name__ == '__main__':
                                 from. If not specified, will choose most recent.')
     parser.add_argument('--logfile', type=str , default='train.log',
                         help='specify logfile')
+    parser.add_argument('--val_step', type=int, default=100)
 
     # Model parameters
     parser.add_argument('--embed_size', type=int , default=256 ,
@@ -237,21 +251,19 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
-    parser.add_argument('--learning_rate', type=float, default=0.01)
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
     parser.add_argument('--delta_a', type=float, default=1e-5)
     parser.add_argument('--log', action='store_true',
                         help='whether to gate based on log difference')
     parser.add_argument('--initial_a', type=float, default=1e-5,
                         help='specify desired initial value of alpha')
-    parser.add_argument('--pass_ratio', type=float, default=0.5,
-                        help='specify ratio of samples that should pass loss \
-                                through gate in each batch. When observed ratio is \
-                                greater than the given value, alpha will be updated.')
     parser.add_argument('--pass_margin', type=float, default=0.05,
                         help='specify far ratio can diverge from specified pass_ratio \
                                 before alpha is updated')
     parser.add_argument('--train_encoder', action='store_true')
     parser.add_argument('--a_log_length', type=int, default=6)
+    parser.add_argument('--divide' , action='store_true')
+    parser.add_argument('--min_loss', type=float, default=1e-1)
     args = parser.parse_args()
     print(args)
     main(args)

@@ -27,8 +27,8 @@ def load_image(image_path, transform=None):
     
     return image
 
-def decode(feature,user_input,decoder,vocab):
-    sampled_ids = decoder.sample(feature,user_input)
+def decode(feature,user_input,decoder,vocab,h_step=0.0):
+    sampled_ids = decoder.sample(feature,user_input,h_step=h_step)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -71,19 +71,8 @@ def encode(img,vocab):
     return feature
 
 def main(args):   
-    transform = transforms.Compose([
-       transforms.ToTensor(), 
-       transforms.Normalize((0.485, 0.456, 0.406), 
-                            (0.229, 0.224, 0.225))])
     with open('./data/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
-    rt_image = './data/val_resized2014' if args.test_set else './data/resized2014'
-    annotations = './data/annotations/captions_val2014.json' if args.test_set else './data/annotations/captions_train2014.json' 
-    shuffle = False if args.test_set else True
-    data_loader = get_loader(rt_image,
-                  annotations,
-                  vocab,
-                  transform, 1, shuffle, 1)
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
     decoder = DecoderRNN(256, 512, 
@@ -95,35 +84,60 @@ def main(args):
     # Load the trained model parameters
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
+
+    bleu_score_origin, bleu_score_hint = bleu_test_acc(encoder, decoder, vocab, args.num_samples,
+                                                       args.num_hints, args.debug, args.h_step)
+
+    print "bleu score between output and ground true without hint\n"+str(bleu_score_origin)
+    print "bleu score between output and ground true with hint\n"+str(bleu_score_hint)
+    
+def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, h_step=0.0):
+    transform = transforms.Compose([
+       transforms.ToTensor(), 
+       transforms.Normalize((0.485, 0.456, 0.406), 
+                            (0.229, 0.224, 0.225))])
+    rt_image = './data/val_resized2014'
+    annotations = './data/annotations/captions_val2014.json' 
+    shuffle = False
+    data_loader = get_loader(rt_image,
+                  annotations,
+                  vocab,
+                  transform, 1, shuffle, 1)
+    assert len(vocab) == decoder.linear.out_features
     bleu_score_origin=0
     bleu_score_hint=0
     #for i in range(0,len(data_loader)/1000):
-    
+    max_bleu = 0
+    ref_sentence = 0
+    hint = 0
     for i, (image, caption, length) in enumerate(data_loader):
-        if i > args.num_samples:
+        if i > num_samples:
             break
         image_tensor = to_var(image, volatile=True)
         caption = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
-        #image = load_image(rt_image+"/"+data_loader.retrieve(i)[0], transform)
-        #image_tensor = to_var(image, volatile=True)
-        #caption = data_loader.retrieve(i)[1]
         feature = encoder(image_tensor)
-        teach_wordid = []
-        teach_wordid.append(vocab.word2idx["<start>"])
-        teach_wordid.append(vocab.word2idx[(caption.split()[0]).lower()])
+        teach_wordid = [vocab.word2idx["<start>"]]
+        for i in range(num_hints):
+            teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
         # get the output with one word hint
-        origin_sentence = decode(feature,[],decoder,vocab)
+        origin_sentence = decode(feature, teach_wordid[0:1], decoder, vocab, h_step=h_step)
         reference = caption.split()
-        hypothesis = origin_sentence.split()
-        bleu_score_origin += nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
+        hypothesis = ' '.join(origin_sentence.split()[1:-1]) 
+        no_hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis)
+        bleu_score_origin += no_hint
 
-        hint_sentence = decode(feature,teach_wordid,decoder,vocab)
-        hypothesis = hint_sentence.split()
-        bleu_score_hint += nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
-
-    print("Tested on {} samples.".format(len(data_loader) / 1000))
-    print "bleu score between output and ground true without hint\n"+str(bleu_score_origin/1000.0)
-    print "bleu score between output and ground true with hint\n"+str(bleu_score_hint/1000.0)
+        hint_sentence = decode(feature,teach_wordid,decoder,vocab,h_step=h_step)
+        hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
+        hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis_hint)
+        bleu_score_hint += hint
+        if debug:
+            print("No hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}".format(origin_sentence, hint_sentence, no_hint, hint))
+        if hint > max_bleu:
+            
+            max_bleu = hint
+            max_sentence = hint_sentence
+            ref_sentence = caption
+    return bleu_score_origin/i, bleu_score_hint/i
 
 
 
@@ -140,6 +154,9 @@ if __name__ == '__main__':
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
     parser.add_argument('--num_samples', type=int , default=500)
+    parser.add_argument('--num_hints', type=int , default=2)
+    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--h_step', type=float , default=0.0)
     args = parser.parse_args()
     print(args)
     main(args)

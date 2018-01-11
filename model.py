@@ -50,66 +50,48 @@ class DecoderRNN(nn.Module):
         """ Decode image feature vectors and generates captions. """
         embeddings = self.embed(captions)
         embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        packed_gt = pack_padded_sequence(embeddings, lengths, batch_first=True) # (batch_size*lengths, embedding_size)
-        hiddens, states = self.lstm(packed_gt) # (batch_size*lengths, hidden_size)
-        out_1 = self.linear(hiddens[0]) # (batch_size*lengths, vocab_size)
-        embeddings_pred = pad_packed_sequence((out_1, hiddens[1]), batch_first=True)[0]
-        # We unpack to remove last index, embed and re-pack
-        embeddings_pred = self.embed(embeddings_pred[:,:-1].max(2)[1]) # (batch_size, max_length - 1, embedding_size)
-        embeddings_pred = torch.cat((features.unsqueeze(1), embeddings_pred), 1)
-        packed_pred = pack_padded_sequence(embeddings_pred, lengths, batch_first=True) # (batch_size*(lengths - 1), embedding_size)        
-        hiddens_pred, _ = self.lstm(packed_pred, states) # (batch_size*(lengths - 1), hidden_size)
-        out_0 = self.linear(hiddens_pred[0]) # (batch_size*(lengths - 1), vocab_size)
-        assert out_0.size() == out_1.size()
-        return out_0, out_1
+        packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
+        hiddens, _ = self.lstm(packed)
+        outputs = self.linear(hiddens[0])
+        return outputs
 
-    def test(self, features, captions, length):
-        """Takes in single sample (batch_size = 1)"""
-        """Samples captions for given input features, returning a predicted sequence for each sequence of ground truths"""
-        sequences = []
-        lin_outs = torch.zeros(length - 1, 2, 1, 9956) # (length-1, 2, 1, vocab_size)
-        next_input = features.unsqueeze(1)
-        out_states = None
-        """Loop over each ground truth to add to the sequence"""
-        for j in range(length):
-            hiddens, out_states = self.lstm(next_input, out_states)
-            outputs = self.linear(hiddens.squeeze(1))
-            predicted = outputs.max(1)[1]
-            if len(lin_outs) > 0:
-                lin_outs[j-1, 1] = outputs.data
-            sampled_ids = [predicted]
-            next_input = self.embed(captions[:,j]).unsqueeze(1)
-            inputs, states = self.embed(predicted).unsqueeze(1), out_states
-            """Loop over each additional word in sequence to predict"""
-            for i in range(length-j):     # maximum sampling length
-                hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
-                outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
-                predicted = outputs.max(1)[1]
-                if i == 0 and j < length - 1:
-                    lin_outs[j, 0] = outputs.data
-                sampled_ids.append(predicted)
-                inputs = self.embed(predicted).unsqueeze(1)
-            sampled_ids = torch.stack(sampled_ids, 1)                  # (batch_size, 20)
-            sequences.append(sampled_ids.squeeze())
-        return sequences, Variable(lin_outs, volatile=True)
+    """
+    Conduct gradient step on a particular step's hidden output
+        h : a single hidden state tensor
+    """
+    def update_h(self, h, gt, h_step):
 
+        h_param = nn.Parameter(h.data)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD([h_param], lr=h_step)
 
-    def sample(self, features,user_input,states=None):
+        predictions = self.linear(h_param.squeeze(1))
+        loss = criterion(predictions, gt)
+        
+        loss.backward()
+        optimizer.step()
+
+        return h_param.data
+
+    def sample(self, features, user_input, states=None, h_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
         for i in range(20):                                      # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
-            outputs = self.linear(hiddens.squeeze(1))  #hiddens.squeeze(1)          # (batch_size, vocab_size)
+            outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
             predicted = outputs.max(1)[1].unsqueeze(0)
             if i < len(user_input):
-                predicted = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                if h_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
+                    states[0].data = self.update_h(states[0], ground_truth.squeeze(0), h_step)
+                predicted = ground_truth
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)
         sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)
         return sampled_ids.squeeze()
 
-    def next_word(self, features, user_input, word_number,states=None):
+    def next_word(self, features, user_input, word_number, states=None):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
