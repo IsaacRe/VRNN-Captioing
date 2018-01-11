@@ -55,7 +55,25 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens[0])
         return outputs
 
-    def sample(self, features,user_input,states=None):
+    """
+    Conduct gradient step on a particular step's hidden output
+        h : a single hidden state tensor
+    """
+    def update_h(self, h, gt, h_step):
+
+        h_param = nn.Parameter(h.data)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD([h_param], lr=h_step)
+
+        predictions = self.linear(h_param.squeeze(1))
+        loss = criterion(predictions, gt)
+        
+        loss.backward()
+        optimizer.step()
+
+        return h_param.data
+
+    def sample(self, features, user_input, states=None, h_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
@@ -64,13 +82,16 @@ class DecoderRNN(nn.Module):
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
             predicted = outputs.max(1)[1].unsqueeze(0)
             if i < len(user_input):
-                predicted = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                if h_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
+                    states[0].data = self.update_h(states[0], ground_truth.squeeze(0), h_step)
+                predicted = ground_truth
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)
         sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)
         return sampled_ids.squeeze()
 
-    def next_word(self, features, user_input, word_number,states=None):
+    def next_word(self, features, user_input, word_number, states=None):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)

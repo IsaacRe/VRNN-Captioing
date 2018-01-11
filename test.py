@@ -27,8 +27,8 @@ def load_image(image_path, transform=None):
     
     return image
 
-def decode(feature,user_input,decoder,vocab):
-    sampled_ids = decoder.sample(feature,user_input)
+def decode(feature,user_input,decoder,vocab,h_step=0.0):
+    sampled_ids = decoder.sample(feature,user_input,h_step=h_step)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -86,12 +86,12 @@ def main(args):
     decoder.load_state_dict(torch.load(args.decoder))
 
     bleu_score_origin, bleu_score_hint = bleu_test_acc(encoder, decoder, vocab, args.num_samples,
-                                                       args.num_hints, args.debug)
+                                                       args.num_hints, args.debug, args.h_step)
 
     print "bleu score between output and ground true without hint\n"+str(bleu_score_origin)
     print "bleu score between output and ground true with hint\n"+str(bleu_score_hint)
     
-def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False):    
+def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, h_step=0.0):
     transform = transforms.Compose([
        transforms.ToTensor(), 
        transforms.Normalize((0.485, 0.456, 0.406), 
@@ -120,13 +120,13 @@ def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=F
         for i in range(num_hints):
             teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
         # get the output with one word hint
-        origin_sentence = decode(feature,teach_wordid[0:1],decoder,vocab)
+        origin_sentence = decode(feature, teach_wordid[0:1], decoder, vocab, h_step=h_step)
         reference = caption.split()
         hypothesis = ' '.join(origin_sentence.split()[1:-1]) 
         no_hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis)
         bleu_score_origin += no_hint
 
-        hint_sentence = decode(feature,teach_wordid,decoder,vocab)
+        hint_sentence = decode(feature,teach_wordid,decoder,vocab,h_step=h_step)
         hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
         hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis_hint)
         bleu_score_hint += hint
@@ -156,6 +156,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_samples', type=int , default=500)
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--h_step', type=float , default=0.0)
     args = parser.parse_args()
     print(args)
     main(args)
