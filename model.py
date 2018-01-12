@@ -73,7 +73,7 @@ class DecoderRNN(nn.Module):
 
         return c_param.data
 
-    def sample(self, features, user_input,vocab, states=None, c_step=0.01):
+    def sample(self, features, user_input,vocab, states=None, c_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
@@ -85,9 +85,9 @@ class DecoderRNN(nn.Module):
             if i < len(user_input):
                 ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
                 if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
-                    print vocab.idx2word[predicted.data[0][0]]
-                    print vocab.idx2word[ground_truth.data[0][0]]
-                    print "backward"
+                    #print vocab.idx2word[predicted.data[0][0]]
+                    #print vocab.idx2word[ground_truth.data[0][0]]
+                    #print "backward"
                     previous_state[1].data = self.update_c(inputs, previous_state, ground_truth.squeeze(0), c_step)
                     hiddens,states = self.lstm(inputs,previous_state)
                     outputs = self.linear(hiddens.squeeze(1)) 

@@ -28,8 +28,8 @@ def load_image(image_path, transform=None):
     
     return image
 
-def decode(feature,user_input,decoder,vocab):
-    sampled_ids = decoder.sample(feature,user_input,vocab)
+def decode(feature,user_input,decoder,vocab,c_step=0.0):
+    sampled_ids = decoder.sample(feature,user_input,vocab,c_step=c_step)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -101,7 +101,7 @@ def main(args):
     
     # Generate caption from image
     feature = encoder(image_tensor)
-    sentence = decode(feature,[],decoder,vocab)
+    sentence = decode(feature,[],decoder,vocab, c_step=args.c_step)
 
     print (sentence)
     user_input = raw_input("Does it make sense to you?(y/n)\n")
@@ -126,7 +126,7 @@ def main(args):
                     continue
                 word_idx = vocab.word2idx[word.lower()]
                 teach_wordid.append(word_idx)
-                sentence = decode(feature,teach_wordid,decoder,vocab)
+                sentence = decode(feature,teach_wordid,decoder,vocab, c_step=args.c_step)
                 print "###################################################\n"
                 print "Current Translated sentence is: \n"+sentence+"\n"
         elif str(user_input) ==  "y":
@@ -177,5 +177,6 @@ if __name__ == '__main__':
                         help='user input starting words')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=2)
+    parser.add_argument('--c_step', type=float, default=0.0)
     args = parser.parse_args()
     main(args)
