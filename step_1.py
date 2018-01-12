@@ -29,7 +29,7 @@ def load_image(image_path, transform=None):
     return image
 
 def decode(feature,user_input,decoder,vocab):
-    sampled_ids = decoder.sample(feature,user_input)
+    sampled_ids = decoder.sample(feature,user_input,vocab)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words

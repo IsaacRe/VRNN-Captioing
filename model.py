@@ -57,34 +57,41 @@ class DecoderRNN(nn.Module):
 
     """
     Conduct gradient step on a particular step's hidden output
-        h : a single hidden state tensor
+        c : a single cell state tensor
     """
-    def update_h(self, h, gt, h_step):
+    def update_c(self, inputs, states, gt, c_step):
 
-        h_param = nn.Parameter(h.data)
+        c_param = nn.Parameter(states[1].data)
         criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.SGD([h_param], lr=h_step)
-
-        predictions = self.linear(h_param.squeeze(1))
+        optimizer = torch.optim.SGD([c_param], lr=c_step)
+        hiddens, _ = self.lstm(inputs,(states[0],c_param))
+        predictions = self.linear(hiddens.squeeze(1))           
         loss = criterion(predictions, gt)
         
-        loss.backward()
+        loss.backward(retain_graph=True)
         optimizer.step()
 
-        return h_param.data
+        return c_param.data
 
-    def sample(self, features, user_input, states=None, h_step=0.0):
+    def sample(self, features, user_input,vocab, states=None, c_step=0.01):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
         for i in range(20):                                      # maximum sampling length
+            previous_state = states
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
             predicted = outputs.max(1)[1].unsqueeze(0)
             if i < len(user_input):
                 ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
-                if h_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
-                    states[0].data = self.update_h(states[0], ground_truth.squeeze(0), h_step)
+                if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
+                    print vocab.idx2word[predicted.data[0][0]]
+                    print vocab.idx2word[ground_truth.data[0][0]]
+                    print "backward"
+                    previous_state[1].data = self.update_c(inputs, previous_state, ground_truth.squeeze(0), c_step)
+                    hiddens,states = self.lstm(inputs,previous_state)
+                    outputs = self.linear(hiddens.squeeze(1)) 
+                    predicted = outputs.max(1)[1].unsqueeze(0)
                 predicted = ground_truth
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)

@@ -148,9 +148,9 @@ def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=F
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--encoder', type=str ,
+    parser.add_argument('--encoder', type=str , default = './models/encoder-4-3000.pkl',
                         help='specify encoder')
-    parser.add_argument('--decoder', type=str ,
+    parser.add_argument('--decoder', type=str , default = './models/decoder-4-3000.pkl',
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
     parser.add_argument('--num_samples', type=int , default=500)
