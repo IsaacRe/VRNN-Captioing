@@ -27,8 +27,14 @@ def load_image(image_path, transform=None):
     
     return image
 
+def prediction_diff(feature, user_input, decoder, vocab, c_step=0.0, debug=False):
+    sample_ids, pred = decoder.sample(feature, user_input, vocab, c_step=c_step)
+    
+"""
+Returns sampled word id's and prediction tensor of the last step
+"""
 def decode(feature,user_input,decoder,vocab,c_step=0.0):
-    sampled_ids = decoder.sample(feature,user_input,vocab,c_step=c_step)
+    sampled_ids, predictions = decoder.sample(feature,user_input,vocab,c_step=c_step)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -38,7 +44,7 @@ def decode(feature,user_input,decoder,vocab,c_step=0.0):
         sampled_caption.append(word)
         if word == '<end>':
             break
-    return ' '.join(sampled_caption)
+    return ' '.join(sampled_caption), predictions
 
 def decode_word(feature,user_input,decoder,vocab):
     sampled_ids = decoder.next_word(feature,user_input,3)
@@ -85,13 +91,15 @@ def main(args):
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
 
-    bleu_score_origin, bleu_score_hint = bleu_test_acc(encoder, decoder, vocab, args.num_samples,
+    bleu_score, prediction_diff = test(encoder, decoder, vocab, args.num_samples,
                                                        args.num_hints, args.debug, args.c_step)
 
-    print "bleu score between output and ground true without hint\n"+str(bleu_score_origin)
-    print "bleu score between output and ground true with hint\n"+str(bleu_score_hint)
+    print "bleu score between output and ground true without hint\n"+str(bleu_score[0])
+    print "bleu score between output and ground true with hint\n"+str(bleu_score[1])
+    print "ground truth prediction difference without hint\n"+str(prediction_diff[0])
+    print "ground truth prediction difference with hint\n"+str(prediction_diff[1])
     
-def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_step=0.0):
+def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_step=0.0):
     transform = transforms.Compose([
        transforms.ToTensor(), 
        transforms.Normalize((0.485, 0.456, 0.406), 
@@ -106,7 +114,6 @@ def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=F
     assert len(vocab) == decoder.linear.out_features
     bleu_score_origin=0
     bleu_score_hint=0
-    #for i in range(0,len(data_loader)/1000):
     max_bleu = 0
     ref_sentence = 0
     hint = 0
@@ -118,26 +125,53 @@ def bleu_test_acc(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=F
         feature = encoder(image_tensor)
         teach_wordid = [vocab.word2idx["<start>"]]
         for i in range(num_hints):
+            if len(caption.split()) <= num_hints:
+                break
             teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
         # get the output with one word hint
-        origin_sentence = decode(feature, teach_wordid[0:1], decoder, vocab, c_step=c_step)
+        origin_sentence, pred_no_hint = decode(feature, teach_wordid[0:1], decoder, vocab, c_step=c_step)
+        # get the predictions for the step following last user input
+        pred_no_hint = pred_no_hint[num_hints+1]
+
         reference = caption.split()
-        hypothesis = ' '.join(origin_sentence.split()[1:-1]) 
-        no_hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis)
+        hypothesis = ' '.join(origin_sentence.split()[1:-1])
+        no_hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
+                                                          hypothesis.split()[num_hints])
         bleu_score_origin += no_hint
 
-        hint_sentence = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
+        hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
+        # get the predictions for the step following last user input
+        pred_hint = pred_hint[num_hints+1]
+        
+        # get the ground truth prediction tensor for the step following las user input
+        gt_id = vocab.word2idx[caption.split()[num_hints]]
+        pred_gt = torch.zeros(pred_no_hint.size())
+        pred_gt[gt_id] = 1.0
+
+        # calculate prediction distance
+        pred_diff_no_hint = torch.dist(pred_gt, pred_no_hint)
+        pred_diff_hint = torch.dist(pred_gt, pred_hint)
+
+        # calculate difference between prediction scores for ground truth
+        gt_diff = 1.0 - pred_no_hint[gt_id]
+        gt_diff_hint = 1.0 - pred_hint[gt_id]
+
         hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
-        hint = nltk.translate.bleu_score.sentence_bleu([caption], hypothesis_hint)
+        hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
+                                                       hypothesis_hint.split()[num_hints])
         bleu_score_hint += hint
         if debug:
-            print("No hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}".format(origin_sentence, hint_sentence, no_hint, hint))
+            print("Ground Truth: {}\nNo hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}\
+                  \nPrediction Difference: {}\nPrediction Difference Improve {}\
+                  \nGround Truth Score: {}\nGround Truth Score Improve {}\
+                  ".format(caption, hypothesis, hypothesis_hint, no_hint, hint, 
+                           pred_diff_no_hint, pred_diff_hint, gt_diff, gt_diff_hint))
         if hint > max_bleu:
             
             max_bleu = hint
             max_sentence = hint_sentence
             ref_sentence = caption
-    return bleu_score_origin/i, bleu_score_hint/i
+    return (bleu_score_origin/i, bleu_score_hint/i), (pred_diff_no_hint, pred_diff_hint)
 
 
 

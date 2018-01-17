@@ -76,11 +76,13 @@ class DecoderRNN(nn.Module):
     def sample(self, features, user_input,vocab, states=None, c_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
+        predictions = []
         inputs = features.unsqueeze(1)
         for i in range(20):                                      # maximum sampling length
             previous_state = states
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
-            outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
+            outputs = nn.functional.sigmoid(self.linear(hiddens.squeeze(1))) # (batch_size, vocab_size)
+            #print(str(torch.max(outputs.data))+'\n'+str(torch.min(outputs.data))+'\n'+str(torch.mean(outputs.data)))
             predicted = outputs.max(1)[1].unsqueeze(0)
             if i < len(user_input):
                 ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
@@ -90,13 +92,15 @@ class DecoderRNN(nn.Module):
                     #print "backward"
                     previous_state[1].data = self.update_c(inputs, previous_state, ground_truth.squeeze(0), c_step)
                     hiddens,states = self.lstm(inputs,previous_state)
-                    outputs = self.linear(hiddens.squeeze(1)) 
+                    outputs = nn.functional.sigmoid(self.linear(hiddens.squeeze(1))) 
                     predicted = outputs.max(1)[1].unsqueeze(0)
                 predicted = ground_truth
             sampled_ids.append(predicted)
+            predictions.append(outputs.data.cpu())
             inputs = self.embed(predicted)
-        sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)
-        return sampled_ids.squeeze()
+        sampled_ids = torch.cat(sampled_ids, 1)                 # (batch_size, 20)
+        predictions = torch.stack(predictions, 1)
+        return sampled_ids.squeeze(), predictions.squeeze()
 
     def next_word(self, features, user_input, word_number, states=None):
         """Samples captions for given image features (Greedy search)."""

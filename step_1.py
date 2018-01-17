@@ -159,9 +159,9 @@ if __name__ == '__main__':
                         help='path for train annotation json file')
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')
-    parser.add_argument('--encoder_path', type=str, default='./models/encoder-4-3000.pkl',
+    parser.add_argument('--encoder_path', type=str, default='./models/encoder_pretrained.pkl',
                         help='path for trained encoder')
-    parser.add_argument('--decoder_path', type=str, default='./models/decoder-4-3000.pkl',
+    parser.add_argument('--decoder_path', type=str, default='./models/decoder_pretrained.pkl',
                         help='path for trained decoder')
     parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
                         help='path for vocabulary wrapper')
