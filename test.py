@@ -117,6 +117,7 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
     max_bleu = 0
     ref_sentence = 0
     hint = 0
+    avg_gt_diff, avg_gt_diff_hint = 0, 0
     for i, (image, caption, length) in enumerate(data_loader):
         if i > num_samples:
             break
@@ -131,7 +132,7 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
         # get the output with one word hint
         origin_sentence, pred_no_hint = decode(feature, teach_wordid[0:1], decoder, vocab, c_step=c_step)
         # get the predictions for the step following last user input
-        pred_no_hint = pred_no_hint[num_hints+1]
+        pred_no_hint = pred_no_hint[num_hints+args.skip_steps]
 
         reference = caption.split()
         hypothesis = ' '.join(origin_sentence.split()[1:-1])
@@ -141,16 +142,10 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
 
         hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
         # get the predictions for the step following last user input
-        pred_hint = pred_hint[num_hints+1]
+        pred_hint = pred_hint[num_hints+args.skip_steps]
         
         # get the ground truth prediction tensor for the step following las user input
-        gt_id = vocab.word2idx[caption.split()[num_hints]]
-        pred_gt = torch.zeros(pred_no_hint.size())
-        pred_gt[gt_id] = 1.0
-
-        # calculate prediction distance
-        pred_diff_no_hint = torch.dist(pred_gt, pred_no_hint)
-        pred_diff_hint = torch.dist(pred_gt, pred_hint)
+        gt_id = vocab.word2idx[caption.split()[num_hints+args.skip_steps-1]]
 
         # calculate difference between prediction scores for ground truth
         gt_diff = 1.0 - pred_no_hint[gt_id]
@@ -160,18 +155,23 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
         hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
                                                        hypothesis_hint.split()[num_hints])
         bleu_score_hint += hint
+
+        avg_gt_diff += gt_diff
+        avg_gt_diff_hint += gt_diff_hint
+
         if debug:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}\
-                  \nPrediction Difference: {}\nPrediction Difference Improve {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, no_hint, hint, 
-                           pred_diff_no_hint, pred_diff_hint, gt_diff, gt_diff_hint))
+                           gt_diff, gt_diff_hint))
         if hint > max_bleu:
             
             max_bleu = hint
             max_sentence = hint_sentence
             ref_sentence = caption
-    return (bleu_score_origin/i, bleu_score_hint/i), (pred_diff_no_hint, pred_diff_hint)
+    avg_gt_diff /= i
+    avg_gt_diff_hint /= i
+    return (bleu_score_origin/i, bleu_score_hint/i), (avg_gt_diff, avg_gt_diff_hint)
 
 
 
@@ -191,6 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--c_step', type=float , default=0.0)
+    parser.add_argument('--skip_steps', type=int, default=1)
     args = parser.parse_args()
     print(args)
     main(args)
