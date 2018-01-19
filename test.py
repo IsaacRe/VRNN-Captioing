@@ -101,6 +101,7 @@ def main(args):
     
 def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_step=0.0):
     transform = transforms.Compose([
+       transforms.Resize(224),
        transforms.ToTensor(), 
        transforms.Normalize((0.485, 0.456, 0.406), 
                             (0.229, 0.224, 0.225))])
