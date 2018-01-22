@@ -91,11 +91,9 @@ def main(args):
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
 
-    bleu_score, prediction_diff = test(encoder, decoder, vocab, args.num_samples,
+    prediction_diff = test(encoder, decoder, vocab, args.num_samples,
                                                        args.num_hints, args.debug, args.c_step)
 
-    print "bleu score between output and ground true without hint\n"+str(bleu_score[0])
-    print "bleu score between output and ground true with hint\n"+str(bleu_score[1])
     print "ground truth prediction difference without hint\n"+str(prediction_diff[0])
     print "ground truth prediction difference with hint\n"+str(prediction_diff[1])
     
@@ -113,11 +111,7 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
                   vocab,
                   transform, 1, shuffle, 1)
     assert len(vocab) == decoder.linear.out_features
-    bleu_score_origin=0
-    bleu_score_hint=0
-    max_bleu = 0
-    ref_sentence = 0
-    hint = 0
+
     avg_gt_diff, avg_gt_diff_hint = 0, 0
     for i, (image, caption, length) in enumerate(data_loader):
         if i > num_samples:
@@ -130,16 +124,10 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
             if len(caption.split()) <= num_hints:
                 break
             teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
-        # get the output with one word hint
-        origin_sentence, pred_no_hint = decode(feature, teach_wordid[0:1], decoder, vocab, c_step=c_step)
+        # get the output with no hint
+        origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
         # get the predictions for the step following last user input
         pred_no_hint = pred_no_hint[num_hints+args.skip_steps]
-
-        reference = caption.split()
-        hypothesis = ' '.join(origin_sentence.split()[1:-1])
-        no_hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
-                                                          hypothesis.split()[num_hints])
-        bleu_score_origin += no_hint
 
         hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
         # get the predictions for the step following last user input
@@ -152,10 +140,6 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
         gt_diff = 1.0 - pred_no_hint[gt_id]
         gt_diff_hint = 1.0 - pred_hint[gt_id]
 
-        hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
-        hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
-                                                       hypothesis_hint.split()[num_hints])
-        bleu_score_hint += hint
 
         avg_gt_diff += gt_diff
         avg_gt_diff_hint += gt_diff_hint
@@ -165,14 +149,9 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, no_hint, hint, 
                            gt_diff, gt_diff_hint))
-        if hint > max_bleu:
-            
-            max_bleu = hint
-            max_sentence = hint_sentence
-            ref_sentence = caption
     avg_gt_diff /= i
     avg_gt_diff_hint /= i
-    return (bleu_score_origin/i, bleu_score_hint/i), (avg_gt_diff, avg_gt_diff_hint)
+    return (avg_gt_diff, avg_gt_diff_hint)
 
 
 
