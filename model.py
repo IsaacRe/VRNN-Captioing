@@ -107,16 +107,16 @@ class DecoderRNN(nn.Module):
             if i < len(user_input):
                 ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
                 if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
+                    
                     dist = i if prop_step>i else prop_step
-                    states_history[-dist][1].data = self.update_c_beta(inputs, previous_state, ground_truth.squeeze(0), c_step,dist)
+                    states_history[-dist][1].data = self.update_c_beta(inputs, states_history[-dist], ground_truth.squeeze(0), c_step,dist)
 
                     for p in range(dist):
                         hiddens, states = self.lstm(inputs,states_history[-dist])
                         outputs = self.linear(hiddens.squeeze(1))
                         predicted = outputs.max(1)[1].unsqueeze(0)         
-                        inputs = self.embed(predictions)
+                        inputs = self.embed(predicted)
 
-                    predicted = outputs.max(1)[1].unsqueeze(0)
                 predicted = ground_truth
             sampled_ids.append(predicted)
             predictions.append(outputs.data.cpu())
