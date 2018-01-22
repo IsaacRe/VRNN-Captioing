@@ -149,8 +149,8 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
         gt_id = vocab.word2idx[caption.split()[num_hints+args.skip_steps-1]]
 
         # calculate difference between prediction scores for ground truth
-        gt_diff = 1.0 - pred_no_hint[gt_id]
-        gt_diff_hint = 1.0 - pred_hint[gt_id]
+        gt_diff = pred_no_hint[gt_id]
+        gt_diff_hint = pred_hint[gt_id]
 
         hypothesis_hint = ' '.join(hint_sentence.split()[1:-1])
         hint = nltk.translate.bleu_score.sentence_bleu([caption[num_hints:]],
@@ -183,9 +183,9 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--encoder', type=str , default = './models/encoder-4-3000.pkl',
+    parser.add_argument('--encoder', type=str , default = './models/encoder_pretrained.pkl',
                         help='specify encoder')
-    parser.add_argument('--decoder', type=str , default = './models/decoder-4-3000.pkl',
+    parser.add_argument('--decoder', type=str , default = './models/decoder_pretrained.pkl',
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
     parser.add_argument('--num_samples', type=int , default=500)
