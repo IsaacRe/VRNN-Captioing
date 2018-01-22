@@ -73,6 +73,59 @@ class DecoderRNN(nn.Module):
 
         return c_param.data
 
+    def update_c_beta(self,inputs,states,gt,c_step,prop_step):
+        c_param = nn.Parameter(states[1].data)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD([c_param], lr=c_step)
+        states = (states[0],c_param)
+        outputs = None
+
+        for i in range(prop_step):
+            hiddens, states = self.lstm(inputs,states)
+            outputs = self.linear(hiddens.squeeze(1))
+            predictions = outputs.max(1)[1].unsqueeze(0)         
+            inputs = self.embed(predictions)
+
+        loss = criterion(outputs, gt)
+        
+        loss.backward(retain_graph=True)
+        optimizer.step()
+
+        return c_param.data
+
+    def sample_beta(self, features, user_input,vocab, states=None, c_step=0.0,prop_step=1):
+        """Samples captions for given image features (Greedy search)."""
+        sampled_ids = []
+        predictions = []
+        inputs = features.unsqueeze(1)
+        states_history = [states]
+        for i in range(20):                                      # maximum sampling length
+            hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
+            states_history.append(states)
+            outputs = self.linear(hiddens.squeeze(1)) # (batch_size, vocab_size)
+            predicted = outputs.max(1)[1].unsqueeze(0)
+            if i < len(user_input):
+                ground_truth = Variable(torch.cuda.LongTensor([[user_input[i]]]))
+                if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
+                    dist = i if prop_step>i else prop_step
+                    states_history[-dist][1].data = self.update_c_beta(inputs, previous_state, ground_truth.squeeze(0), c_step,dist)
+
+                    for p in range(dist):
+                        hiddens, states = self.lstm(inputs,states_history[-dist])
+                        outputs = self.linear(hiddens.squeeze(1))
+                        predicted = outputs.max(1)[1].unsqueeze(0)         
+                        inputs = self.embed(predictions)
+
+                    predicted = outputs.max(1)[1].unsqueeze(0)
+                predicted = ground_truth
+            sampled_ids.append(predicted)
+            predictions.append(outputs.data.cpu())
+            inputs = self.embed(predicted)
+        sampled_ids = torch.cat(sampled_ids, 1)                 # (batch_size, 20)
+        predictions = torch.stack(predictions, 1)
+        return sampled_ids.squeeze(), predictions.squeeze()
+
+
     def sample(self, features, user_input,vocab, states=None, c_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
