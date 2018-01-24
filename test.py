@@ -91,11 +91,11 @@ def main(args):
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
 
-    prediction_diff = test(encoder, decoder, vocab, args.num_samples,
+    prediction_score = test(encoder, decoder, vocab, args.num_samples,
                                                        args.num_hints, args.debug, args.c_step)
 
-    print "ground truth prediction difference without hint\n"+str(prediction_diff[0])
-    print "ground truth prediction difference with hint\n"+str(prediction_diff[1])
+    print "ground truth prediction score without hint\n"+str(prediction_score[0])
+    print "ground truth prediction score with hint\n"+str(prediction_score[1])
     
 def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_step=0.0):
     transform = transforms.Compose([
@@ -112,7 +112,7 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
                   transform, 1, shuffle, 1)
     assert len(vocab) == decoder.linear.out_features
 
-    avg_gt_diff, avg_gt_diff_hint = 0, 0
+    avg_gt_score, avg_gt_score_hint = torch.zeros(args.compare_steps,1), torch.zeros(args.compare_steps,1)
     for i, (image, caption, length) in enumerate(data_loader):
         if i > num_samples:
             break
@@ -126,32 +126,32 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
             teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
         # get the output with no hint
         origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
-        # get the predictions for the step following last user input
-        pred_no_hint = pred_no_hint[num_hints+args.skip_steps]
 
         hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
-        # get the predictions for the step following last user input
-        pred_hint = pred_hint[num_hints+args.skip_steps]
         
-        # get the ground truth prediction tensor for the step following las user input
-        gt_id = vocab.word2idx[caption.split()[num_hints+args.skip_steps-1]]
+        # get the ground truth ids for all steps following last user input
+        gt_words = caption.split()[num_hints:]
+        num_compare = min(len(gt_words), args.compare_steps)
+        gt_ids = torch.LongTensor([vocab.word2idx[word] for word in gt_words[:num_compare]])
+        
+        # get the predictions for all steps following last user input
+        pred_no_hint = pred_no_hint[num_hints:num_hints+num_compare]
+        pred_hint = pred_hint[num_hints:num_hints+num_compare]
 
-        # calculate difference between prediction scores for ground truth
-        gt_diff = pred_no_hint[gt_id]
-        gt_diff_hint = pred_hint[gt_id]
+        # calculate prediction scores for ground truth
+        gt_score = pred_no_hint.gather(1,gt_ids.view(-1,1))
+        gt_score_hint = pred_hint.gather(1,gt_ids.view(-1,1))
 
-
-        avg_gt_diff += gt_diff
-        avg_gt_diff_hint += gt_diff_hint
+        avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
+        avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
 
         if debug:
-            print("Ground Truth: {}\nNo hint: {}\nHint: {}\nBleu: {}\nBleu Improve: {}\
+            print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
-                  ".format(caption, hypothesis, hypothesis_hint, no_hint, hint, 
-                           gt_diff, gt_diff_hint))
-    avg_gt_diff /= i
-    avg_gt_diff_hint /= i
-    return (avg_gt_diff, avg_gt_diff_hint)
+                  ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
+    avg_gt_score /= i
+    avg_gt_score_hint /= i
+    return (avg_gt_score, avg_gt_score_hint)
 
 
 
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--c_step', type=float , default=0.0)
-    parser.add_argument('--skip_steps', type=int, default=1)
+    parser.add_argument('--compare_steps', type=int , default=10)
     args = parser.parse_args()
     print(args)
     main(args)
