@@ -112,7 +112,7 @@ class DecoderRNN(nn.Module):
                     states_history[-dist][1].data = self.update_c_beta(inputs, states_history[-dist], ground_truth.squeeze(0), c_step,dist)
 
                     for p in range(dist):
-                        hiddens, states = self.lstm(inputs,states_history[-dist])
+                        hiddens, states = self.lstm(inputs,states_history[-dist+p])
                         outputs = self.linear(hiddens.squeeze(1))
                         predicted = outputs.max(1)[1].unsqueeze(0)         
                         inputs = self.embed(predicted)
