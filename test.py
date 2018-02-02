@@ -106,10 +106,10 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
     # get the output with no hint
     # origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
-    origin_sentence, pred_no_hint = decode_beta(feature,[], decoder, vocab, c_step=c_step,prop_step=args.prop_steps)
+    origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
 
     # hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
-    hint_sentence, pred_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=c_step,prop_step=args.prop_steps)
+    hint_sentence, pred_hint = decode(feature,teach_wordid, decoder, vocab, c_step=c_step)
     
     # get the ground truth ids for all steps following last user input
     gt_words = caption.split()[num_hints:]
@@ -128,7 +128,7 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
 
 
 
-def main(args):   
+def main(args):
     with open('./data/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
     encoder = EncoderCNN(256)
@@ -142,6 +142,10 @@ def main(args):
     # Load the trained model parameters
     encoder.load_state_dict(torch.load(args.encoder))
     decoder.load_state_dict(torch.load(args.decoder))
+
+    if args.test_prop0:
+        decoder.test_h_from_c()
+        return
 
     measurement_score = test(encoder, decoder, vocab, args.num_samples,
                                                        args.num_hints, args.debug, args.c_step)
@@ -214,6 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--prop_steps', type=int , default=1)
     parser.add_argument('--measurement',type=str,default="ps",
         help='ps: probability score, ce: CrossEntropyLoss')
+    parser.add_argument('--test_prop0', action='store_true')
     args = parser.parse_args()
     print(args)
     main(args)
