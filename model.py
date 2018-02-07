@@ -125,6 +125,76 @@ class DecoderRNN(nn.Module):
 
         return h1.data, c_param.data
 
+    def sample_with_update(self, features, user_input, vocab, states=None, c_step=0.0):
+        user_input = Variable(torch.cuda.LongTensor([user_input]))
+        features = features.unsqueeze(1)
+        
+        criterion = nn.CrossEntropyLosss()
+
+        prev_h = states[0]
+        # Get cell state output by first step
+        inputs = features
+        _, states = self.lstm(inputs, states)
+        state_hist = []
+
+        # loop through all steps for which we have ground truth
+        for i in range(len(user_input)):
+            if i > 0:
+                prev_h = states[0]
+                # conduct lstm step to get next cell state
+                _, states = self.lstm(inputs, states)
+            c_param = nn.Parameter(states[1].data)
+            
+            updates = []
+
+            # conduct prop 0 update, append to updates
+            h1 = self.h_from_c(inputs, prev_h, c_param)
+            prediction = self.linear(h1.squeeze(0))
+            loss = criterion(prediction, user_input[:,i])
+            loss.backward(retain_graph=True)
+            updates.append(c_param.grad.data)
+            c_param.grad.data.zero_()
+
+            # loop through all lstm steps (for which we have gt) at once to get predictions
+            hiddens, _ = self.lstm(user_input[:,i:-1], states)
+            hiddens = hiddens.squeeze(0)
+
+            if len(user_input) - 1 == i:
+                assert hiddens.size(0) == 0
+
+            # Get update for each step of lstm
+            for j in range(hiddens.size(0)):
+                # conduct prop i+1 update for each step executed
+                prediction = self.linear(hiddens[j]).max(1)[1]
+                loss = criterion(prediction, user_input[:,i+j+1])
+
+                loss.backward(retain_graph=True)
+
+                updates.append(c_param.grad.data)
+                c_param.grad.data.zero_()
+
+            # apply updates
+            states[1].data += torch.sum(torch.stack(updates, dim=0), dim=0) * c_step
+
+            inputs = user_input[i]
+
+        all_predictions = []
+        sampled_ids = []
+        # Use final updated c_step to sample the remaining predictions
+        for i in range(20 - len(user_input)):
+            hiddens, states = self.lstm(inputs, states)
+            predictions = self.linear(hiddens.squeeze(1))
+            all_predictions.append(predictions)
+            
+            predicted = predictions.max(1)[1].unsqueeze(1)
+            sampled_ids.append(predicted)
+
+            inputs = self.embed(predicted)
+
+        all_predictions = torch.stack(all_predictions, 1)
+        sampled_ids = torch.cat(sampled_ids, 1)
+        return sampled_ids.squeeze(), all_predictions.squeeze()
+
     def sample(self, features, user_input,vocab, states=None, c_step=0.0):
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
@@ -184,12 +254,15 @@ class DecoderRNN(nn.Module):
                 if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
                     
                     dist = i if prop_step>i else prop_step
+                    #if i == 0:
                     states_history[-dist][1].data = self.update_c_beta(inputs, states_history[-dist], ground_truth.squeeze(0), c_step,dist)
 
                     for p in range(dist):
                         hiddens, states = self.lstm(inputs,states_history[-dist+p])
+                        #if -dist+p+1 < 0:
+                        #    states_history[-dist+p+1] = states
                         outputs = self.linear(hiddens.squeeze(1))
-                        predicted = outputs.max(1)[1].unsqueeze(0)         
+                        predicted = outputs.max(1)[1].unsqueeze(0)
                         inputs = self.embed(predicted)
 
                 predicted = ground_truth

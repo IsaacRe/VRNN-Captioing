@@ -48,7 +48,7 @@ def decode(feature,user_input,decoder,vocab,c_step=0.0):
     return ' '.join(sampled_caption), predictions
 
 def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
-    sampled_ids, predictions = decoder.sample_beta(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
+    sampled_ids, predictions = decoder.sample_with_update(feature,user_input,vocab,c_step=c_step)
     sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
@@ -106,10 +106,10 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
     # get the output with no hint
     # origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
-    origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
+    origin_sentence, pred_no_hint = decode_beta(feature,[], decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
 
     # hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
-    hint_sentence, pred_hint = decode(feature,teach_wordid, decoder, vocab, c_step=c_step)
+    hint_sentence, pred_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
     
     # get the ground truth ids for all steps following last user input
     gt_words = caption.split()[num_hints:]
