@@ -13,6 +13,7 @@ from model import EncoderCNN, DecoderRNN
 from data_loader import get_loader
 from collections import Counter
 from pycocotools.coco import COCO
+from torch.nn.utils.rnn import pack_padded_sequence
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -92,9 +93,28 @@ def encode(img,vocab):
     return feature
 
 def crsEntropyLoss(caption,length, feature,vocab,num_hints,decoder,c_step,compare_steps):
-    targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+    # Since sampled caption always has a length <= 20
+    if length[0] > 20:
+        length[0] = 20
+    target = pack_padded_sequence(caption, length, batch_first=True)[0]
+    target = to_var(target,volatile=True)
+    # print "cap"
+    # print caption
+    caption = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
+    # print "cap!"
+    # print caption
+    teach_wordid = [vocab.word2idx["<start>"]]
+    for i in range(num_hints):
+        if len(caption.split()) <= num_hints:
+            break
+        teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
+    _, pred_no_hint = decoder.sample_beta(feature,[],vocab,c_step=c_step,prop_step=args.prop_steps)
+    _, pred_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps)
+    pred_no_hint = to_var(pred_no_hint,volatile=True)
+    pred_hint = to_var(pred_hint,volatile=True)
     criterion = nn.CrossEntropyLoss()
-    return criterion(out, targets)
+    # cut the predication matrix to have the same length as caption in order to compute loss
+    return criterion(pred_no_hint[:length[0]], target), criterion(pred_hint[:length[0]],target)
 
 
 def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_steps):
@@ -145,14 +165,14 @@ def main(args):
 
     measurement_score = test(encoder, decoder, vocab, args.num_samples,
                                                        args.num_hints, args.debug, args.c_step)
-    if args.measurement == "ps":
+    if args.msm == "ps":
         print "ground truth prediction score without hint\n"+str(measurement_score[0])
         print "ground truth prediction score with hint\n"+str(measurement_score[1])
-    elif args.measurement == "ce":
+    elif args.msm == "ce":
         print "Cross Entropy Loss without hint\n"+str(measurement_score[0])
-        print "Cross Entropy Loss without hint\n"+str(measurement_score[1])
+        print "Cross Entropy Loss with hint\n"+str(measurement_score[1])
 
-def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_step=0.0):
+def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0):
     transform = transforms.Compose([
        transforms.Resize(224),
        transforms.ToTensor(), 
@@ -168,6 +188,9 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
     assert len(vocab) == decoder.linear.out_features
 
     avg_gt_score, avg_gt_score_hint = torch.zeros(args.compare_steps,1), torch.zeros(args.compare_steps,1)
+
+    avg_crossEnloss,avg_crossEnloss_hint = torch.cuda.FloatTensor(1),torch.cuda.FloatTensor(1)
+
     for i, (image, caption, length) in enumerate(data_loader):
         if i > num_samples:
             break
@@ -175,22 +198,27 @@ def test(encoder, decoder, vocab, num_samples=100, num_hints=2, debug=False, c_s
         feature = encoder(image_tensor)
 
         # Compute probability score
-        if args.measurement == "ps":
+        if args.msm == "ps":
             gt_score, gt_score_hint,num_compare = probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
             avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
             avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
         # Compute cross entropy loss
-        elif args.measurement == 'ce':
-            pass
-
+        elif args.msm == 'ce':
+            crossEnloss, crossEnloss_hint = crsEntropyLoss(caption,length,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
+            avg_crossEnloss = avg_crossEnloss + crossEnloss.data
+            avg_crossEnloss_hint = avg_crossEnloss_hint + crossEnloss_hint.data
         if debug:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
-    
-    avg_gt_score /= i
-    avg_gt_score_hint /= i
-    return (avg_gt_score, avg_gt_score_hint)
+    if args.msm == "ps":
+        avg_gt_score /= i
+        avg_gt_score_hint /= i
+        return (avg_gt_score, avg_gt_score_hint)
+    else:
+        avg_crossEnloss /= i
+        avg_crossEnloss_hint /= i
+        return (avg_crossEnloss, avg_crossEnloss_hint)
 
 
 
@@ -212,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--c_step', type=float , default=0.0)
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=1)
-    parser.add_argument('--measurement',type=str,default="ps",
+    parser.add_argument('--msm',type=str,default="ps",
         help='ps: probability score, ce: CrossEntropyLoss')
     args = parser.parse_args()
     print(args)
