@@ -244,7 +244,9 @@ class DecoderRNN(nn.Module):
         predictions = []
         inputs = features.unsqueeze(1)
         states_history = [states]
+        inputs_history = []
         for i in range(20):                                      # maximum sampling length
+            inputs_history.append(inputs)
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             states_history.append(states)
             outputs = self.linear(hiddens.squeeze(1)) # (batch_size, vocab_size)
@@ -254,15 +256,14 @@ class DecoderRNN(nn.Module):
                 if c_step > 0 and predicted.data[0][0] != ground_truth.data[0][0]:
                     
                     dist = i if prop_step>i else prop_step
-                    #if i == 0:
-                    states_history[-dist][1].data = self.update_c_beta(inputs, states_history[-dist], ground_truth.squeeze(0), c_step,dist)
-
+                    states_history[-dist][1].data = self.update_c_beta(inputs_history[-dist], states_history[-dist], ground_truth.squeeze(0), c_step,dist)
+                    inputs = inputs_history[-dist]
+                    states = states_history[-dist]
                     for p in range(dist):
-                        hiddens, states = self.lstm(inputs,states_history[-dist+p])
-                        #if -dist+p+1 < 0:
-                        #    states_history[-dist+p+1] = states
+                        hiddens, states = self.lstm(inputs,states)
                         outputs = self.linear(hiddens.squeeze(1))
-                        predicted = outputs.max(1)[1].unsqueeze(0)
+                        predicted = outputs.max(1)[1].unsqueeze(0)         
+                        # predicted = Variable(torch.cuda.LongTensor([[user_input[-dist+p]]]))
                         inputs = self.embed(predicted)
 
                 predicted = ground_truth
@@ -271,6 +272,10 @@ class DecoderRNN(nn.Module):
             inputs = self.embed(predicted)
         sampled_ids = torch.cat(sampled_ids, 1)                 # (batch_size, 20)
         predictions = torch.stack(predictions, 1)
+        # print "sampled id"
+        # print sampled_ids.squeeze()
+        # print "predictions"
+        # print predictions.squeeze()
         return sampled_ids.squeeze(), predictions.squeeze()
 
 
