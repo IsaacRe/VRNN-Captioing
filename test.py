@@ -168,15 +168,26 @@ def main(args):
         return
 
     measurement_score = test(encoder, decoder, vocab, args.num_samples,
-                                                       args.num_hints, args.debug, args.c_step)
+                                            args.num_hints, args.debug, args.c_step, args.avg)
     if args.msm == "ps":
-        print "ground truth prediction score without hint\n"+str(measurement_score[0])
-        print "ground truth prediction score with hint\n"+str(measurement_score[1])
+        if args.avg:
+            print "ground truth prediction score without hint\n"+str(measurement_score[0])
+            print "ground truth prediction score with hint\n"+str(measurement_score[1])
+        else:
+            with open(args.filepath, 'w+') as f:
+                pickle.dump(measurement_score, f)
+            print "Done. Data saved to {}".format(args.filepath)
     elif args.msm == "ce":
-        print "Cross Entropy Loss without hint\n"+str(measurement_score[0])
-        print "Cross Entropy Loss with hint\n"+str(measurement_score[1])
+        if args.avg:
+            print "Cross Entropy Loss without hint\n"+str(measurement_score[0])
+            print "Cross Entropy Loss with hint\n"+str(measurement_score[1])
+        else:
+            with open(args.filepath, 'w+') as f:
+                pickle.dump(measurement_score, f)
+            print "Done. Data saved to {}".format(args.filepath)
+            
 
-def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0):
+def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0, avg=True):
     transform = transforms.Compose([
        transforms.Resize(224),
        transforms.ToTensor(), 
@@ -192,8 +203,10 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     assert len(vocab) == decoder.linear.out_features
 
     avg_gt_score, avg_gt_score_hint = torch.zeros(args.compare_steps,1), torch.zeros(args.compare_steps,1)
+    gt_scores, gt_scores_hint = [], []
 
     avg_crossEnloss,avg_crossEnloss_hint = torch.cuda.FloatTensor(1),torch.cuda.FloatTensor(1)
+    crossEnlosses, crossEnlosses_hint = [], []
 
     for i, (image, caption, length) in enumerate(data_loader):
         if i > num_samples:
@@ -204,13 +217,21 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
         # Compute probability score
         if args.msm == "ps":
             gt_score, gt_score_hint,num_compare = probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
-            avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
-            avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
+            if avg:
+                avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
+                avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
+            else:
+                gt_scores.append(gt_score[:num_compare])
+                gt_scores_hint.append(gt_score_hint[:num_compare])
         # Compute cross entropy loss
         elif args.msm == 'ce':
             crossEnloss, crossEnloss_hint = crsEntropyLoss(caption,length,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
-            avg_crossEnloss = avg_crossEnloss + crossEnloss.data
-            avg_crossEnloss_hint = avg_crossEnloss_hint + crossEnloss_hint.data
+            if avg:
+                avg_crossEnloss = avg_crossEnloss + crossEnloss.data
+                avg_crossEnloss_hint = avg_crossEnloss_hint + crossEnloss_hint.data
+            else:
+                crossEnlosses.append(crossEnloss)
+                crossEnlosses_hint.append(crossEnloss_hint)
         if debug:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
@@ -218,11 +239,17 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     if args.msm == "ps":
         avg_gt_score /= i
         avg_gt_score_hint /= i
-        return (avg_gt_score, avg_gt_score_hint)
+        if avg:
+            return (avg_gt_score, avg_gt_score_hint)
+        else:
+            return (gt_scores, gt_scores_hint)
     else:
         avg_crossEnloss /= i
         avg_crossEnloss_hint /= i
-        return (avg_crossEnloss, avg_crossEnloss_hint)
+        if avg:
+            return (avg_crossEnloss, avg_crossEnloss_hint)
+        else:
+            return (crossEnlosses, crossEnlosses_hint)
 
 
 
@@ -247,6 +274,8 @@ if __name__ == '__main__':
     parser.add_argument('--msm',type=str,default="ps",
         help='ps: probability score, ce: CrossEntropyLoss')
     parser.add_argument('--test_prop0', action='store_true')
+    parser.add_argument('--avg', action='store_true')
+    parser.add_argument('--filepath', type=str , default='hint_improvement.pkl')
     args = parser.parse_args()
     print(args)
     main(args)
