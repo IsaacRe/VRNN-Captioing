@@ -5,6 +5,7 @@ import nltk
 import numpy as np 
 import pickle 
 import os
+import json
 from PIL import Image
 from torch.autograd import Variable 
 from torchvision import transforms 
@@ -13,6 +14,7 @@ from model import EncoderCNN, DecoderRNN
 from data_loader import get_loader
 from collections import Counter
 from pycocotools.coco import COCO
+from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
 
 def to_var(x, volatile=False):
@@ -146,6 +148,13 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
     
     return gt_score,gt_score_hint,num_compare
 
+def createJson(data):
+    with open('captions_val2014_results.json', 'w') as f:
+     json.dump(data, f)
+
+
+def cocoEval():
+    pass
 
 
 def main(args):   
@@ -171,6 +180,8 @@ def main(args):
     elif args.msm == "ce":
         print "Cross Entropy Loss without hint\n"+str(measurement_score[0])
         print "Cross Entropy Loss with hint\n"+str(measurement_score[1])
+    elif args.msm == "co":
+        cocoEval()
 
 def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0):
     transform = transforms.Compose([
@@ -191,12 +202,13 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     avg_crossEnloss,avg_crossEnloss_hint = torch.cuda.FloatTensor(1),torch.cuda.FloatTensor(1)
 
-    for i, (image, caption, length) in enumerate(data_loader):
+    idncaption = []
+
+    for i, (image, caption, length, img_id) in enumerate(data_loader):
         if i > num_samples:
             break
         image_tensor = to_var(image, volatile=True)
         feature = encoder(image_tensor)
-
         # Compute probability score
         if args.msm == "ps":
             gt_score, gt_score_hint,num_compare = probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
@@ -207,18 +219,28 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             crossEnloss, crossEnloss_hint = crsEntropyLoss(caption,length,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
             avg_crossEnloss = avg_crossEnloss + crossEnloss.data
             avg_crossEnloss_hint = avg_crossEnloss_hint + crossEnloss_hint.data
+        elif args.msm == 'co':
+            temp = dict()
+            temp["image_id"] = img_id[0]
+            temp["caption"] = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
+            idncaption.append(temp)
+
         if debug:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
+
     if args.msm == "ps":
         avg_gt_score /= i
         avg_gt_score_hint /= i
         return (avg_gt_score, avg_gt_score_hint)
-    else:
+    elif args.msm == "ce":
         avg_crossEnloss /= i
         avg_crossEnloss_hint /= i
         return (avg_crossEnloss, avg_crossEnloss_hint)
+    elif args.msm == "co":
+        createJson(json.dumps(idncaption))
+        return None
 
 
 
@@ -241,7 +263,7 @@ if __name__ == '__main__':
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=1)
     parser.add_argument('--msm',type=str,default="ps",
-        help='ps: probability score, ce: CrossEntropyLoss')
+        help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     args = parser.parse_args()
     print(args)
     main(args)

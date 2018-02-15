@@ -117,8 +117,8 @@ class DecoderRNN(nn.Module):
                     for p in range(dist):
                         hiddens, states = self.lstm(inputs,states)
                         outputs = self.linear(hiddens.squeeze(1))
-                        predicted = outputs.max(1)[1].unsqueeze(0)         
                         # predicted = Variable(torch.cuda.LongTensor([[user_input[-dist+p]]]))
+                        predicted = outputs.max(1)[1].unsqueeze(0)         
                         inputs = self.embed(predicted)
 
                 predicted = ground_truth

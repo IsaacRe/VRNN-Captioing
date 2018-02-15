@@ -11,7 +11,6 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from datetime import datetime
-from test import bleu_test_acc
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -94,7 +93,6 @@ def main(args):
             
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
-            print captions
             captions = to_var(captions)
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             
@@ -104,29 +102,24 @@ def main(args):
             features = encoder(images)
             out = decoder(features, captions, lengths)
             loss = criterion(out, targets)
-            print loss
             
             batch_loss.append(loss.data[0])
             
             loss.backward()
             optimizer.step()
-            
-            # Evaluate the model
-            if i % args.val_step == 0:
-                acc, gt_acc = bleu_test_acc(encoder, decoder, vocab)
-                batch_acc.append((acc, gt_acc))
+        
 
 
-            # Print log info
-            if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f'
-                      %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
+            # # Print log info
+            # if i % args.log_step == 0:
+            #     print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f'
+            #           %(epoch, args.num_epochs, i, total_step, 
+            #             loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
                 
-                with open(args.model_path + args.logfile, 'a') as f:
-                    f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f\n'
-                          %(epoch, args.num_epochs, i, total_step, 
-                            loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
+            #     with open(args.model_path + args.logfile, 'a') as f:
+            #         f.write('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f, Val: %.5f, %.5f\n'
+            #               %(epoch, args.num_epochs, i, total_step, 
+            #                 loss.data[0], np.exp(loss.data[0]), acc, gt_acc)) 
                 
             # Save the models
             if (i+1) % args.save_step == 0:
