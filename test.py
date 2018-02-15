@@ -5,6 +5,7 @@ import nltk
 import numpy as np 
 import pickle 
 import os
+import json
 from PIL import Image
 from torch.autograd import Variable 
 from torchvision import transforms 
@@ -13,6 +14,7 @@ from model import EncoderCNN, DecoderRNN
 from data_loader import get_loader
 from collections import Counter
 from pycocotools.coco import COCO
+from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
 
 def to_var(x, volatile=False):
@@ -156,6 +158,13 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
     
     return gt_score, gt_score_hint, num_compare
 
+def createJson(data):
+    with open('captions_val2014_results.json', 'w') as f:
+        json.dump(data, f)
+
+
+def cocoEval():
+    pass
 
 
 def main(args):
@@ -206,6 +215,8 @@ def main(args):
                 pickle.dump(measurement_score, f)
             print "Done. Data saved to {}".format(args.filepath)
             
+    elif args.msm == "co":
+        cocoEval()
 
 def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0, no_avg=True):
     transform = transforms.Compose([
@@ -231,7 +242,9 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     num_sampled = 0
     data_points = []
 
-    for i, (image, caption, length) in enumerate(data_loader):
+    idncaption = []
+
+    for i, (image, caption, length, img_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples and not args.test_c_step:
             break
 
@@ -240,7 +253,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
         # Compute optimal c_step by (pred, ce)
         if args.test_c_step:
-            c_steps = [0.1 * j for j in range(60)]
+            c_steps = list(np.exp(np.arange(0.1, 4, 0.05))-1)
             user_input = caption[0,1:-1]
             update_step = np.random.randint(2,7) if args.update_step == 0 else args.update_step
 
@@ -283,6 +296,12 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             else:
                 crossEnlosses.append(crossEnloss)
                 crossEnlosses_hint.append(crossEnloss_hint)
+        elif args.msm == 'co':
+            temp = dict()
+            temp["image_id"] = img_id[0]
+            temp["caption"] = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
+            idncaption.append(temp)
+
         if debug and not args.test_c_step:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
@@ -298,16 +317,16 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             return (avg_gt_score, avg_gt_score_hint)
         else:
             return (gt_scores, gt_scores_hint)
-    else:
+    elif args.msm == "ce":
         avg_crossEnloss /= i
         avg_crossEnloss_hint /= i
         if not no_avg:
             return (avg_crossEnloss, avg_crossEnloss_hint)
         else:
             return (crossEnlosses, crossEnlosses_hint)
-
-
-
+    elif args.msm == "co":
+        createJson(json.dumps(idncaption))
+        return None
 
         
 
@@ -327,7 +346,7 @@ if __name__ == '__main__':
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=-1)
     parser.add_argument('--msm',type=str,default="ps",
-        help='ps: probability score, ce: CrossEntropyLoss')
+        help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     parser.add_argument('--test_prop0', action='store_true')
     parser.add_argument('--test_c_step', action='store_true')
     parser.add_argument('--no_avg', action='store_true')
