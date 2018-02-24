@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision.models as models
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, PackedSequence
 from torch.autograd import Variable
+import pdb
 
 
 class EncoderCNN(nn.Module):
@@ -125,20 +126,54 @@ class DecoderRNN(nn.Module):
 
         return h1.data, c_param.data
 
-    def sample_with_update(self, features, user_input, vocab, states=None, c_step=0.0):
-        user_input = Variable(torch.cuda.LongTensor([user_input]))
+    """
+    (1) Sample a sequence, updating with given c_step at each step. Backpropping from later steps
+        to compute update of earlier step is currently non-functional - update is computed solely
+        from cross entropy loss obtained from predictions computed during same step.
+        Return : sampled ids, each step's predictions
+    (2) Sample a sequence, updating cell state of a specified step with each c_step value in the
+        specified list
+        Return : (len(c_steps) X compare_steps) tensor containing cross entropy losses,
+                 (len(c_steps) X compare_steps) tensor containing raw ground truth prediction value
+    c_step : (1) float specifying magnitude of each update
+             (2) list(float) specifying c_step values to test when updating the last step for which
+                 we have ground truth
+    """
+    def sample_with_update(self, features, user_input, vocab, states=None, c_step=0.0, compare_steps=10, update_step=2):
+        input_size = 0
+	if type(user_input) == list:
+            if user_input != []:
+                user_input = Variable(torch.cuda.LongTensor([user_input]))
+                input_size = user_input.size(1)
+            else:
+                input_size = 0
+        else:
+            user_input = Variable(user_input.unsqueeze(0).cuda())
         features = features.unsqueeze(1)
-        
-        criterion = nn.CrossEntropyLosss()
 
-        prev_h = states[0]
+        if type(c_step) == list:
+            input_size = update_step
+
+            if input_size > user_input.size(1):
+                return None, None
+        
+        criterion = nn.CrossEntropyLoss()
+
+        if states == None:
+            prev_h = Variable(torch.zeros(1,1,self.lstm.hidden_size).cuda())
+        else:
+            prev_h = states[0]
         # Get cell state output by first step
         inputs = features
+
         _, states = self.lstm(inputs, states)
         state_hist = []
 
+        ce_tensor = []
+        pred_tensor = []
+
         # loop through all steps for which we have ground truth
-        for i in range(len(user_input)):
+        for i in range(input_size):
             if i > 0:
                 prev_h = states[0]
                 # conduct lstm step to get next cell state
@@ -147,52 +182,143 @@ class DecoderRNN(nn.Module):
             
             updates = []
 
+            # we will store cross entropy for predictions gen'd from states updated with each c_step
+            #   (when testing for optimal c_step)
+            ce_each = []
+            pred_each = []
+
             # conduct prop 0 update, append to updates
             h1 = self.h_from_c(inputs, prev_h, c_param)
             prediction = self.linear(h1.squeeze(0))
-            loss = criterion(prediction, user_input[:,i])
-            loss.backward(retain_graph=True)
-            updates.append(c_param.grad.data)
-            c_param.grad.data.zero_()
-
-            # loop through all lstm steps (for which we have gt) at once to get predictions
-            hiddens, _ = self.lstm(user_input[:,i:-1], states)
-            hiddens = hiddens.squeeze(0)
-
-            if len(user_input) - 1 == i:
-                assert hiddens.size(0) == 0
-
-            # Get update for each step of lstm
-            for j in range(hiddens.size(0)):
-                # conduct prop i+1 update for each step executed
-                prediction = self.linear(hiddens[j]).max(1)[1]
-                loss = criterion(prediction, user_input[:,i+j+1])
-
+            if prediction.max(1)[1][0].data[0] != user_input[0,i].data[0] or type(c_step) == list:
+                loss = criterion(prediction, user_input[:,i])
+                
+                # store for later comparison with predictions gen'd from various c_step updates
+                ce_each.append(loss.data.cpu().clone())
+                assert prediction.size(1) > 6000
+                pred_each.append(prediction[:,int(user_input[0,i].data.cpu())].data.cpu().clone())
+                
                 loss.backward(retain_graph=True)
-
-                updates.append(c_param.grad.data)
+                updates.append(torch.cuda.FloatTensor(c_param.grad.data.cpu().cuda()))
                 c_param.grad.data.zero_()
 
+            # loop through all lstm steps (for which we have gt) at once to get predictions
+            if input_size > i + 1:
+
+                hiddens, _ = self.lstm(self.embed(user_input[:,i:-1]), states)
+                hiddens = hiddens.squeeze(0)
+                num_hiddens = hiddens.size(0)
+            else:
+                num_hiddens = 0
+
+            if user_input.size(1) - 1 == i:
+                assert num_hiddens == 0
+
+            #TODO backward pass on loss gen'd from lstm hidden out not reaching c_param
+            """
+
+            # Get update for each step of lstm
+            for j in range(num_hiddens):
+                # conduct prop i+1 update for each step executed
+                prediction = self.linear(hiddens[j].unsqueeze(0))
+
+                if prediction.max(1)[1][0].data[0] != user_input[0,i+j+1].data[0]:
+                    loss = criterion(prediction, user_input[:,i+j+1])
+
+                    loss.backward(retain_graph=True)
+
+                    updates.append(torch.cuda.FloatTensor(c_param.grad.data.cpu().cuda()))
+                    c_param.grad.data.zero_()
+                else:
+                    print(user_input)
+            """
+            assert len(updates) < 2
+
             # apply updates
-            states[1].data += torch.sum(torch.stack(updates, dim=0), dim=0) * c_step
+            if updates != []:
+                
+                # if we're collecting data to test optimal c_step:
+                if type(c_step) == list:
 
-            inputs = user_input[i]
+                    if i == input_size - 1:
+                        # test predictions for all c_step values
+                        test_states = [states]
+                        for step in c_step:
+                            updated_c = Variable(states[1].data.clone() + updates[0] * step)
 
-        all_predictions = []
-        sampled_ids = []
+                            # get new hidden output
+                            new_h = self.h_from_c(inputs, prev_h, updated_c)
+
+                            # appended states will be used to compute accuracy metrics of later steps
+                            test_states.append((new_h, updated_c))
+
+                            # compute new predictions
+                            predictions = self.linear(new_h.squeeze(0))
+
+                            # determine optimal c_step (using cross entropy loss as metric)
+                            loss = criterion(predictions, user_input[:,i]).data.cpu()
+                            pred = predictions[:,int(user_input[0,i].data.cpu())].data.cpu().clone()
+                            ce_each.append(loss)
+                            pred_each.append(pred)
+                        
+                        # add first row of output tensors
+                        ce_tensor.append(torch.stack(ce_each, 0))
+                        pred_tensor.append(torch.cat(pred_each, 0))
+                    
+                else:
+                    states[1].data += torch.sum(torch.stack(updates, dim=0), dim=0) * c_step
+
+            inputs = self.embed(user_input[:,i].unsqueeze(0))
+
+        all_predictions = [torch.FloatTensor([[0] * self.linear.out_features])] * (input_size)
+        sampled_ids = [torch.LongTensor([[0]])] * (input_size)
+        
+        """
+        (2)
+        """
+        if type(c_step) == list:
+            
+            assert len(user_input.size()) == 2
+
+            inputs = torch.cat([inputs]*(len(c_step) + 1), 0)
+            states = (torch.cat([t[0] for t in test_states], 1), \
+                      torch.cat([t[1] for t in test_states], 1))
+
+            for i in range(compare_steps):
+                if i + input_size >= user_input.size(1):
+                    break
+
+                hiddens, states = self.lstm(inputs, states)     # 1 X len(c_step) X hidden size
+                predictions = self.linear(hiddens.squeeze(0))   # len(c_step) X vocab size
+                
+                loss = [criterion(predictions[j], user_input[0,i+input_size]).data.cpu() \
+                            for j in range(predictions.size(0))]
+                loss = torch.cat(loss, 0)
+                assert loss.size(0) == len(c_step) + 1
+
+                pred = predictions[:,0,user_input[0,i+input_size].data[0]].data.cpu().clone()
+                ce_tensor.append(loss)
+                pred_tensor.append(pred)
+
+            return torch.stack(ce_tensor, 1).squeeze(), torch.stack(pred_tensor, 1)
+
+        """
+        (1)
+        """
         # Use final updated c_step to sample the remaining predictions
-        for i in range(20 - len(user_input)):
+        for i in range(20 - input_size):
             hiddens, states = self.lstm(inputs, states)
             predictions = self.linear(hiddens.squeeze(1))
-            all_predictions.append(predictions)
+            all_predictions.append(predictions.data.cpu())
             
             predicted = predictions.max(1)[1].unsqueeze(1)
-            sampled_ids.append(predicted)
+            sampled_ids.append(predicted.data.cpu())
 
             inputs = self.embed(predicted)
 
         all_predictions = torch.stack(all_predictions, 1)
         sampled_ids = torch.cat(sampled_ids, 1)
+
         return sampled_ids.squeeze(), all_predictions.squeeze()
 
     def sample(self, features, user_input,vocab, states=None, c_step=0.0):
@@ -239,6 +365,9 @@ class DecoderRNN(nn.Module):
         return c_param.data
 
     def sample_beta(self, features, user_input,vocab, states=None, c_step=0.0,prop_step=1):
+        if prop_step == -1:
+            return self.sample_with_update(features, user_input, vocab, states, c_step)
+        
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         predictions = []
@@ -270,7 +399,7 @@ class DecoderRNN(nn.Module):
             sampled_ids.append(predicted)
             predictions.append(outputs.data.cpu())
             inputs = self.embed(predicted)
-        sampled_ids = torch.cat(sampled_ids, 1)                 # (batch_size, 20)
+        sampled_ids = torch.cat(sampled_ids, 1).data.cpu()       # (batch_size, 20)
         predictions = torch.stack(predictions, 1)
         # print "sampled id"
         # print sampled_ids.squeeze()
