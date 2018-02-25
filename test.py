@@ -214,7 +214,6 @@ def main(args):
             with open(args.filepath, 'w+') as f:
                 pickle.dump(measurement_score, f)
             print "Done. Data saved to {}".format(args.filepath)
-            
     elif args.msm == "co":
         cocoEval()
 
@@ -327,8 +326,6 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     elif args.msm == "co":
         createJson(json.dumps(idncaption))
         return None
-
-        
 
 
 if __name__ == '__main__':
