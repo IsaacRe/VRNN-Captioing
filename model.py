@@ -139,7 +139,7 @@ class DecoderRNN(nn.Module):
              (2) list(float) specifying c_step values to test when updating the last step for which
                  we have ground truth
     """
-    def sample_with_update(self, features, user_input, vocab, states=None, c_step=0.0, compare_steps=10, update_step=2):
+    def sample_with_update(self, features, user_input, vocab, states=None, c_step=0.0, compare_steps=10, update_method='c', update_step=2, accum_updates=True):
         input_size = 0
 	if type(user_input) == list:
             if user_input != []:
@@ -179,6 +179,8 @@ class DecoderRNN(nn.Module):
                 # conduct lstm step to get next cell state
                 _, states = self.lstm(inputs, states)
             c_param = nn.Parameter(states[1].data)
+            h_param = nn.Parameter(states[0].data)
+            states = (h_param, c_param)
             
             updates = []
 
@@ -188,8 +190,13 @@ class DecoderRNN(nn.Module):
             pred_each = []
 
             # conduct prop 0 update, append to updates
-            h1 = self.h_from_c(inputs, prev_h, c_param)
-            prediction = self.linear(h1.squeeze(0))
+            if update_method == 'c':
+                h1 = self.h_from_c(inputs, prev_h, c_param)
+                assert h1[0,0,0].data[0] - states[0][0,0,0].data[0] < 1e-4
+                prediction = self.linear(h1.squeeze(0))
+            else:
+                prediction = self.linear(h_param.squeeze(0))
+
             if prediction.max(1)[1][0].data[0] != user_input[0,i].data[0] or type(c_step) == list:
                 loss = criterion(prediction, user_input[:,i])
                 
@@ -199,40 +206,60 @@ class DecoderRNN(nn.Module):
                 pred_each.append(prediction[:,int(user_input[0,i].data.cpu())].data.cpu().clone())
                 
                 loss.backward(retain_graph=True)
-                updates.append(torch.cuda.FloatTensor(c_param.grad.data.cpu().cuda()))
-                c_param.grad.data.zero_()
+                
+                if update_method == 'c':
+                    
+                    updates.append(torch.cuda.FloatTensor(c_param.grad.data.clone()))
+                    c_param.grad.data.zero_()
+
+                elif update_method == 'h':
+                    updates.append(torch.cuda.FloatTensor(h_param.grad.data.clone()))
+                    h_param.grad.data.zero_()
+
 
             # loop through all lstm steps (for which we have gt) at once to get predictions
             if input_size > i + 1:
-
+                hiddens = []
+                _states = states
+                
                 hiddens, _ = self.lstm(self.embed(user_input[:,i:-1]), states)
-                hiddens = hiddens.squeeze(0)
-                num_hiddens = hiddens.size(0)
+                hiddens = torch.split(hiddens.squeeze(0), 1, dim=0)
+
+                num_hiddens = len(hiddens)
+
             else:
                 num_hiddens = 0
 
             if user_input.size(1) - 1 == i:
                 assert num_hiddens == 0
 
-            #TODO backward pass on loss gen'd from lstm hidden out not reaching c_param
-            """
+            if accum_updates:
+                # Get update for each step of lstm
+                for j in range(num_hiddens):
+                    # conduct prop i+1 update for each step executed
+                    prediction = self.linear(hiddens[j])
 
-            # Get update for each step of lstm
-            for j in range(num_hiddens):
-                # conduct prop i+1 update for each step executed
-                prediction = self.linear(hiddens[j].unsqueeze(0))
+                    if prediction.max(1)[1][0].data[0] != user_input[0,i+j+1].data[0]:
+                        loss = criterion(prediction, user_input[:,i+j+1])
 
-                if prediction.max(1)[1][0].data[0] != user_input[0,i+j+1].data[0]:
-                    loss = criterion(prediction, user_input[:,i+j+1])
+                        loss.backward(retain_graph=True)
+                        
+                        if update_method == 'c':
 
-                    loss.backward(retain_graph=True)
+                            assert c_param.grad.data[0,0][0] != 0.0
 
-                    updates.append(torch.cuda.FloatTensor(c_param.grad.data.cpu().cuda()))
-                    c_param.grad.data.zero_()
-                else:
-                    print(user_input)
-            """
-            assert len(updates) < 2
+                            updates.append(torch.cuda.FloatTensor(c_param.grad.data.clone()))
+                            c_param.grad.data.zero_()
+
+                        elif update_method == 'h':
+
+                            assert h_param.grad.data[0][0] != 0.0
+
+                            updates.append(torch.cuda.FloatTensor(h_param.grad.data.clone()))
+                            h_param.grad.data.zero_()
+                
+            else:
+                assert len(updates) < 2
 
             # apply updates
             if updates != []:
@@ -244,13 +271,18 @@ class DecoderRNN(nn.Module):
                         # test predictions for all c_step values
                         test_states = [states]
                         for step in c_step:
-                            updated_c = Variable(states[1].data.clone() + updates[0] * step)
+                            if update_method == 'c':
+                                updated_c = Variable(states[1].data.clone() + updates[0] * step)
 
-                            # get new hidden output
-                            new_h = self.h_from_c(inputs, prev_h, updated_c)
+                                # get new hidden output
+                                new_h = self.h_from_c(inputs, prev_h, updated_c)
 
-                            # appended states will be used to compute accuracy metrics of later steps
-                            test_states.append((new_h, updated_c))
+                                # appended states will be used to compute accuracy metrics of later steps
+                                test_states.append((new_h, updated_c))
+
+                            elif update_method == 'h':
+                                new_h = Variable(states[0].data.clone() + updates[0] * step)
+                                test_states.append((new_h, states[1]))
 
                             # compute new predictions
                             predictions = self.linear(new_h.squeeze(0))
@@ -266,7 +298,41 @@ class DecoderRNN(nn.Module):
                         pred_tensor.append(torch.cat(pred_each, 0))
                     
                 else:
-                    states[1].data += torch.sum(torch.stack(updates, dim=0), dim=0) * c_step
+
+                    if len(updates) > 1:
+                        # calculate unit vectors for each update
+                        assert updates[0].size(2) == self.lstm.hidden_size
+                        units = [u/u.norm(2.0, dim=2) for u in updates]
+                        units = torch.cat(units, dim=0).squeeze()
+                        
+                        # compute sum of dot-product with each other update unit vector
+                        #  for each unit vector.
+                        dots = torch.mm(units, units.transpose(0,1))
+                        weights = torch.sum(dots, dim=0)
+                        
+                        assert weights.size(0) == len(updates)
+                        update = torch.sum(torch.stack([updates[j]*weights[j] for j in range(len(updates))], dim=0), dim=0)
+
+                    else:
+                        update = updates[0]
+                    
+
+                    """
+                    dots = [torch.stack([units[j] * units[k] for k in range(units.size(0)) if k != i], dim=0).norm(dim=0) for i in range(units.size(0))]
+
+                    # weight updates by magnitude of dot product with all previous updates
+                    idxs = sorted(range(len(dots)), key=lambda k: dots[k])
+                    print(idxs)
+                    """
+
+
+                    
+
+                    if update_method == 'c':
+                        states[1].data -= update * c_step
+                        states[0].data = self.h_from_c(inputs, prev_h, states[1]).data
+                    elif update_method == 'h':
+                        states[0].data -= update * c_step
 
             inputs = self.embed(user_input[:,i].unsqueeze(0))
 
@@ -364,10 +430,12 @@ class DecoderRNN(nn.Module):
 
         return c_param.data
 
-    def sample_beta(self, features, user_input,vocab, states=None, c_step=0.0,prop_step=1):
+    def sample_beta(self, features, user_input,vocab, states=None, c_step=0.0,prop_step=1,update_method='c'):
         if prop_step == -1:
-            return self.sample_with_update(features, user_input, vocab, states, c_step)
-        
+            return self.sample_with_update(features, user_input, vocab, states, c_step, update_method=update_method)
+        elif prop_step == 1:
+            return self.sample_with_update(features, user_input, vocab, states, c_step, update_method=update_method, accum_updates=False)
+
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         predictions = []
@@ -391,8 +459,8 @@ class DecoderRNN(nn.Module):
                     for p in range(dist):
                         hiddens, states = self.lstm(inputs,states)
                         outputs = self.linear(hiddens.squeeze(1))
-                        # predicted = Variable(torch.cuda.LongTensor([[user_input[-dist+p]]]))
                         predicted = outputs.max(1)[1].unsqueeze(0)         
+                        # predicted = Variable(torch.cuda.LongTensor([[user_input[-dist+p]]]))
                         inputs = self.embed(predicted)
 
                 predicted = ground_truth

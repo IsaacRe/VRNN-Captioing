@@ -51,7 +51,7 @@ def decode(feature,user_input,decoder,vocab,c_step=0.0):
     return ' '.join(sampled_caption), predictions
 
 def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
-    sampled_ids, predictions = decoder.sample_beta(feature,user_input,vocab,c_step=c_step, prop_step=prop_step)
+    sampled_ids, predictions = decoder.sample_beta(feature,user_input,vocab,c_step=c_step, prop_step=prop_step, update_method=args.update_method)
     sampled_ids = sampled_ids.numpy()
     
     # Decode word_ids to words
@@ -114,8 +114,8 @@ def crsEntropyLoss(caption,length, feature,vocab,num_hints,decoder,c_step,compar
         if len(caption.split()) <= num_hints:
             break
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
-    _, pred_no_hint = decoder.sample_beta(feature,[],vocab,c_step=c_step,prop_step=args.prop_steps)
-    _, pred_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps)
+    _, pred_no_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=0.0,prop_step=args.prop_steps,update_method=args.update_method)
+    _, pred_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps,update_method=args.update_method)
     pred_no_hint = to_var(pred_no_hint,volatile=True)
     pred_hint = to_var(pred_hint,volatile=True)
     criterion = nn.CrossEntropyLoss()
@@ -138,7 +138,7 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
     # get the output with no hint
     # origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
-    origin_sentence, pred_no_hint = decode_beta(feature,[], decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
+    origin_sentence, pred_no_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=0.0, prop_step=args.prop_steps)
 
     # hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
     hint_sentence, pred_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
@@ -162,10 +162,8 @@ def createJson(data):
     with open('captions_val2014_results.json', 'w') as f:
         json.dump(data, f)
 
-
 def cocoEval():
     pass
-
 
 def main(args):
     with open('./data/vocab.pkl', 'rb') as f:
@@ -200,16 +198,18 @@ def main(args):
                                             args.num_hints, args.debug, args.c_step, args.no_avg)
     if args.msm == "ps":
         if not args.no_avg:
-            print "ground truth prediction score without hint\n"+str(measurement_score[0])
-            print "ground truth prediction score with hint\n"+str(measurement_score[1])
+            print "ground truth prediction score without update\n"+str(measurement_score[0])
+            print "ground truth prediction score with update\n"+str(measurement_score[1])
+            print "Difference\n"+str(measurement_score[1]-measurement_score[0])
         else:
             with open(args.filepath, 'w+') as f:
                 pickle.dump(measurement_score, f)
             print "Done. Data saved to {}".format(args.filepath)
     elif args.msm == "ce":
         if not args.no_avg:
-            print "Cross Entropy Loss without hint\n"+str(measurement_score[0])
-            print "Cross Entropy Loss with hint\n"+str(measurement_score[1])
+            print "Cross Entropy Loss without update\n"+str(measurement_score[0])
+            print "Cross Entropy Loss with update\n"+str(measurement_score[1])
+            print "Difference\n"+str(measurement_score[1]-measurement_score[0])
         else:
             with open(args.filepath, 'w+') as f:
                 pickle.dump(measurement_score, f)
@@ -240,7 +240,6 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     num_sampled = 0
     data_points = []
-
     idncaption = []
 
     for i, (image, caption, length, img_id) in enumerate(data_loader):
@@ -256,7 +255,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             user_input = caption[0,1:-1]
             update_step = np.random.randint(2,7) if args.update_step == 0 else args.update_step
 
-            p_score, ce_score = decoder.sample_with_update(feature, user_input, vocab, None, c_steps, args.compare_steps, update_step)
+            p_score, ce_score = decoder.sample_with_update(feature, user_input, vocab, None, c_steps, args.compare_steps, args.update_method, update_step)
 
             # determine optimal c_step, dependent on p_score/ce_score of predictions at update step
             if type(p_score) == type(None):
@@ -295,7 +294,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             else:
                 crossEnlosses.append(crossEnloss)
                 crossEnlosses_hint.append(crossEnloss_hint)
-        elif args.msm == 'co':
+        elif args.msm == "co":
             temp = dict()
             temp["image_id"] = img_id[0]
             temp["caption"] = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
@@ -327,6 +326,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
         createJson(json.dumps(idncaption))
         return None
 
+        
+
 
 if __name__ == '__main__':
 
@@ -343,12 +344,13 @@ if __name__ == '__main__':
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=-1)
     parser.add_argument('--msm',type=str,default="ps",
-        help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
+            help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     parser.add_argument('--test_prop0', action='store_true')
     parser.add_argument('--test_c_step', action='store_true')
     parser.add_argument('--no_avg', action='store_true')
     parser.add_argument('--filepath', type=str , default='hint_improvement.pkl')
     parser.add_argument('--update_step', type=int , default=0)
+    parser.add_argument('--update_method', type=str , default='c')
     args = parser.parse_args()
     print(args)
     main(args)
