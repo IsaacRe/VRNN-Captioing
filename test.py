@@ -13,7 +13,7 @@ from build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN
 from data_loader import get_loader
 from collections import Counter
-from pycocotools.coco import COCO
+from pycocotoolscap.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
 
