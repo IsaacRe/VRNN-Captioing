@@ -28,9 +28,9 @@ def load_image(image_path, transform=None):
     
     return image
 
-def decode(feature,user_input,decoder,vocab,c_step,prop_step):
+def decode(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
     sampled_ids,_ = decoder.sample_beta(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
-    sampled_ids = sampled_ids.cpu().data.numpy()
+    # sampled_ids = sampled_ids.cpu().data.numpy()
     
     # Decode word_ids to words
     sampled_caption = []
@@ -61,7 +61,7 @@ def encode(img,vocab,):
                                  (0.229, 0.224, 0.225))])
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
-    encoder.load_state_dict(torch.load('./models/encoder-1-3000.pkl'))
+    encoder.load_state_dict(torch.load('./models/encoder_pretrained.pkl'))
     image = load_image(img, transform)
     image_tensor = to_var(image, volatile=True)
     

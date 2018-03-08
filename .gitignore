@@ -3,3 +3,4 @@
 /static/*
 *.pyc
 *.txt
+course.db-journal

@@ -15,7 +15,7 @@ import requests
 from build_vocab import Vocabulary
 import pickle
 from step_1 import encode, decode, decode_word
-from model_new import EncoderCNN, DecoderRNN
+from model import EncoderCNN, DecoderRNN
 import torch
 
 app = Flask(__name__)
@@ -38,7 +38,7 @@ with open('./data/vocab.pkl', 'rb') as f:
 decoder = DecoderRNN(256, 512,len(vocab), 1)
 if torch.cuda.is_available():
     decoder.cuda()
-decoder.load_state_dict(torch.load('./models/decoder-1-3000.pkl'))
+decoder.load_state_dict(torch.load('./models/decoder_pretrained.pkl'))
 
 #Show all courses with all instructors
 @app.route('/')
@@ -73,13 +73,18 @@ def extractFeature():
     else:
         if request.form['hint']:
             hints = []
+            hint_word = []
             hints.append(vocab.word2idx["<start>"])
+            hint_word = ["<start>"]
             image = session.query(Input).filter_by(id = 2).one()
             for word in (request.form['hint']).split():
                 hints.append(vocab.word2idx[word])
+                hint_word.append(word)
             sentence = decode(gv["feature"],hints,decoder,vocab)
-            print sentence
-            image.translation = sentence
+            print len((request.form['hint']))
+            sentence = sentence.split()
+            image.translation = " ".join(hint_word+sentence[len(hint_word):])
+            print image.translation
             return render_template('caption.html',image=image)
 
 
