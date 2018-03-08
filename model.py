@@ -149,6 +149,8 @@ class DecoderRNN(nn.Module):
                 input_size = 0
         else:
             user_input = Variable(user_input.unsqueeze(0).cuda())
+            input_size = user_input.size(1)
+
         features = features.unsqueeze(1)
 
         if type(c_step) == list:
@@ -327,7 +329,6 @@ class DecoderRNN(nn.Module):
 
 
                     
-
                     if update_method == 'c':
                         states[1].data -= update * c_step
                         states[0].data = self.h_from_c(inputs, prev_h, states[1]).data

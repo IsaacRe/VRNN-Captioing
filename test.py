@@ -5,6 +5,7 @@ import nltk
 import numpy as np 
 import pickle 
 import os
+from sys import path
 import json
 from PIL import Image
 from torch.autograd import Variable 
@@ -16,6 +17,8 @@ from collections import Counter
 from pycocotoolscap.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
+
+
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -61,7 +64,7 @@ def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
         sampled_caption.append(word)
         if word == '<end>':
             break
-    return ' '.join(sampled_caption), predictions
+    return ' '.join(sampled_caption[1:-1]), predictions
 
 
 def decode_word(feature,user_input,decoder,vocab):
@@ -158,12 +161,31 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
     
     return gt_score, gt_score_hint, num_compare
 
-def createJson(data):
-    with open('captions_val2014_results.json', 'w') as f:
-        json.dump(data, f)
+def createJson(predicted, ground_truth=None):
+    with open('data/captions_val2014_results.json', 'w+') as f:
+        json.dump(predicted, f)
+    if ground_truth is not None:
+        with open('data/captions_val2014.json', 'w+') as f:
+            json.dump(ground_truth, f)
 
 def cocoEval():
-    pass
+    coco = COCO('data/captions_val2014.json')
+    cocoRes = coco.loadRes('data/captions_val2014_results.json')
+
+    cocoEval = COCOEvalCap(coco, cocoRes)
+    cocoEval.params['image_id'] = cocoRes.getImgIds()
+
+    cocoEval.evaluate()
+
+    scores = {}
+    for metric, score in cocoEval.eval.items():
+        scores[metric] = score
+
+    with open(args.filepath, 'w+') as f:
+        pickle.dump(scores, f)
+
+
+
 
 def main(args):
     with open('./data/vocab.pkl', 'rb') as f:
@@ -240,9 +262,12 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     num_sampled = 0
     data_points = []
+    idnimage = []
     idncaption = []
+    idnprediction = []
+    imgids = []
 
-    for i, (image, caption, length, img_id) in enumerate(data_loader):
+    for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples and not args.test_c_step:
             break
 
@@ -294,11 +319,39 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             else:
                 crossEnlosses.append(crossEnloss)
                 crossEnlosses_hint.append(crossEnloss_hint)
+        # Evaluate with pycoco tools
         elif args.msm == "co":
-            temp = dict()
-            temp["image_id"] = img_id[0]
-            temp["caption"] = ' '.join([vocab.idx2word[c] for c in caption[0,1:-1]])
-            idncaption.append(temp)
+            no_update, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
+                                       vocab, 0.0, args.prop_steps)
+            
+            pred_caption, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
+                                          vocab, c_step, args.prop_steps)
+            
+            caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
+            no_update = ' '.join(caption[:num_hints]) + ' ' + ' '.join(no_update.split()[num_hints:])
+            pred_caption = ' '.join(caption[:num_hints]) + ' ' + ' '.join(pred_caption.split()[num_hints:])
+            caption = ' '.join(caption)
+
+            if args.load_val:
+                temp1 = dict()
+                temp1["image_id"] = img_id[0]
+                temp1["id"] = ann_id[0]
+                temp1["caption"] = caption
+
+                temp2 = dict()
+                temp2["id"] = img_id[0]
+            
+            temp3 = dict()
+            temp3["image_id"] = img_id[0]
+            temp3["id"] = ann_id[0]
+            temp3["caption"] = pred_caption
+
+            if img_id[0] not in imgids:
+                if args.load_val:
+                    idncaption.append(temp1)
+                    idnimage.append(temp2)
+                idnprediction.append(temp3)
+                imgids.append(img_id[0])
 
         if debug and not args.test_c_step:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
@@ -323,7 +376,12 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
         else:
             return (crossEnlosses, crossEnlosses_hint)
     elif args.msm == "co":
-        createJson(json.dumps(idncaption))
+        val_data = None if idncaption == [] else \
+                   {'type': '', 'info': '', 'licenses': None,
+                    'annotations': idncaption,
+                    'images': idnimage}
+
+        createJson(idnprediction, val_data)
         return None
 
         
@@ -351,6 +409,8 @@ if __name__ == '__main__':
     parser.add_argument('--filepath', type=str , default='hint_improvement.pkl')
     parser.add_argument('--update_step', type=int , default=0)
     parser.add_argument('--update_method', type=str , default='c')
+    parser.add_argument('--load_val', action='store_true',
+            help='if true, loads gt for all samples into json file in data dir')
     args = parser.parse_args()
     print(args)
     main(args)
