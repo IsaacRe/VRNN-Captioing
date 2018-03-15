@@ -18,7 +18,68 @@ from pycocotoolscap.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
 
+class CocoJson:
 
+    def __init__(self, val_json, res_json):
+        self.val_json = val_json
+        self.res_json = res_json
+        self.idncaption = []
+        self.idnimage = []
+        self.idnprediction = []
+        self.imgids = []
+
+    def add_entry(self, img_id=1, ann_id=1, pred_caption='', caption=None):
+        if img_id in self.imgids:
+            return
+        self.imgids.append(img_id)
+        
+        if caption is not None:
+            temp = { \
+                    "image_id": img_id,
+                    "id": ann_id,
+                    "caption": caption,
+                    }
+
+            temp2 = { "id": img_id }
+
+        temp3 = { \
+                "image_id": img_id,
+                "id": ann_id,
+                "caption": pred_caption,
+                }
+
+        if caption is not None:
+            self.idncaption.append(temp)
+            self.idnimage.append(temp2)
+
+        self.idnprediction.append(temp3)
+
+    def new_pred(self, img_id=1, ann_id=1, pred_caption=''):
+        assert img_id in imgids
+        self.idnprediction = [{ \
+                              "image_id": img_id,
+                              "id": ann_id,
+                              "caption": pred_caption,
+                              }]
+        self.create_json()
+
+    
+    def create_json(self):
+        if self.idncaption != []:
+            formatted = { \
+                        "type": "", "info": "", "licenses": None,
+                        "annotations": self.idncaption,
+                        "images": self.idnimage,
+                        }
+            with open(self.val_json, 'w+') as f:
+                json.dump(formatted, f)
+
+        with open(self.res_json, 'w+') as f:
+            json.dump(self.idnprediction, f)
+
+        self.idncaption = []
+        self.idnimage = []
+        self.idnprediction = []
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -161,16 +222,10 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
     
     return gt_score, gt_score_hint, num_compare
 
-def createJson(predicted, ground_truth=None):
-    with open('data/captions_val2014_results.json', 'w+') as f:
-        json.dump(predicted, f)
-    if ground_truth is not None:
-        with open('data/captions_val2014.json', 'w+') as f:
-            json.dump(ground_truth, f)
 
-def cocoEval():
-    coco = COCO('data/captions_val2014.json')
-    cocoRes = coco.loadRes('data/captions_val2014_results.json')
+def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_results.json'):
+    coco = COCO(val)
+    cocoRes = coco.loadRes(res)
 
     cocoEval = COCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
@@ -181,10 +236,11 @@ def cocoEval():
     for metric, score in cocoEval.eval.items():
         scores[metric] = score
 
-    with open(args.filepath, 'w+') as f:
-        pickle.dump(scores, f)
+    if __name__ == '__main__':
+        with open(args.filepath, 'w+') as f:
+            pickle.dump(scores, f)
 
-
+    return scores
 
 
 def main(args):
@@ -262,10 +318,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     num_sampled = 0
     data_points = []
-    idnimage = []
-    idncaption = []
-    idnprediction = []
-    imgids = []
+    coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
 
     for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples and not args.test_c_step:
@@ -333,25 +386,9 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             caption = ' '.join(caption)
 
             if args.load_val:
-                temp1 = dict()
-                temp1["image_id"] = img_id[0]
-                temp1["id"] = ann_id[0]
-                temp1["caption"] = caption
+                caption = None
 
-                temp2 = dict()
-                temp2["id"] = img_id[0]
-            
-            temp3 = dict()
-            temp3["image_id"] = img_id[0]
-            temp3["id"] = ann_id[0]
-            temp3["caption"] = pred_caption
-
-            if img_id[0] not in imgids:
-                if args.load_val:
-                    idncaption.append(temp1)
-                    idnimage.append(temp2)
-                idnprediction.append(temp3)
-                imgids.append(img_id[0])
+            coco_json.add_entry(img_id[0], ann_id[0], pred_caption, caption)
 
         if debug and not args.test_c_step:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
@@ -376,12 +413,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
         else:
             return (crossEnlosses, crossEnlosses_hint)
     elif args.msm == "co":
-        val_data = None if idncaption == [] else \
-                   {'type': '', 'info': '', 'licenses': None,
-                    'annotations': idncaption,
-                    'images': idnimage}
-
-        createJson(idnprediction, val_data)
+        coco_json.create_json()
         return None
 
         

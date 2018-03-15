@@ -17,6 +17,8 @@ import pickle
 from step_1 import encode, decode, decode_word
 from model import EncoderCNN, DecoderRNN
 import torch
+from test import CocoJson, cocoEval
+import data_loader
 
 app = Flask(__name__)
 
@@ -44,7 +46,7 @@ decoder.load_state_dict(torch.load('./models/decoder_pretrained.pkl'))
 @app.route('/')
 @app.route('/demo')
 def showDemos():
-  return render_template('demos.html')
+    return render_template('demos.html')
 
 
 #Show a course's all instructors
@@ -59,7 +61,6 @@ def showNextWord():
     image = session.query(Input).filter_by(id = 2).one()
     return render_template('step1_nextword.html',image=image)
 
-
 @app.route('/demo/step1/test',methods=['GET','POST'])
 def extractFeature():
     if request.method == 'GET':
@@ -69,6 +70,12 @@ def extractFeature():
         sentence = decode(feature,[],decoder,vocab)
         print sentence
         image.translation = sentence
+
+        coco_json = CocoJson('data/step_1/temp/gt.json', 'data/step_1/temp/pred.json')
+        coco_json.add_entry(pred_caption=image.translation, caption=image.ground_true)
+        coco_json.create_json()
+        image.evalcap = cocoEval(coco_json.val_json, coco_json.res_json)
+        
         return render_template('caption.html',image=image)
     else:
         if request.form['hint']:
@@ -78,13 +85,19 @@ def extractFeature():
             hint_word = ["<start>"]
             image = session.query(Input).filter_by(id = 2).one()
             for word in (request.form['hint']).split():
-                hints.append(vocab.word2idx[word])
+                hints.append(vocab.word2idx[word.lower()])
                 hint_word.append(word)
             sentence = decode(gv["feature"],hints,decoder,vocab)
             print len((request.form['hint']))
             sentence = sentence.split()
             image.translation = " ".join(hint_word+sentence[len(hint_word):])
             print image.translation
+            
+            coco_json = CocoJson('data/step_1/temp/gt.json', 'data/step_1/temp/pred.json')
+            coco_json.add_entry(pred_caption=image.translation)
+            coco_json.create_json()
+            image.evalcap = cocoEval(coco_json.val_json, coco_json.res_json)
+
             return render_template('caption.html',image=image)
 
 
@@ -97,6 +110,12 @@ def extractFeature_nextword():
         sentence = decode(feature,[],decoder,vocab)
         print sentence
         image.translation = sentence
+
+        coco_json = CocoJson('data/step_1/temp/gt.json', 'data/step_1/temp/pred.json')
+        coco_json.add_entry(pred_caption=image.translation, caption=image.ground_true)
+        coco_json.create_json()
+        image.evalcap = cocoEval(coco_json.val_json, coco_json.res_json)
+        
         return render_template('caption_nextword.html',image=image)
     else:
         if request.form['hint']:
@@ -104,18 +123,25 @@ def extractFeature_nextword():
             hints.append(vocab.word2idx["<start>"])
             image = session.query(Input).filter_by(id = 2).one()
             for word in (request.form['hint']).split():
-                hints.append(vocab.word2idx[word])
+                hints.append(vocab.word2idx[word.lower()])
             sentence = decode(gv["feature"],hints,decoder,vocab)
             print sentence
             image.translation = sentence
+            
+            coco_json = CocoJson('data/step_1/temp/gt.json', 'data/step_1/temp/pred.json')
+            coco_json.add_entry(pred_caption=image.translation)
+            coco_json.create_json()
+            image.evalcap = cocoEval(coco_json.val_json, coco_json.res_json)
+
             return render_template('caption_nextword.html',image=image)
+
 @app.route('/_find_next_word')
 def findnword():
     print "findnword"
     hints=[]
     sentence = request.args.get('sentence', 0, type=str)
     for word in sentence.split():
-        hints.append(vocab.word2idx[word])
+        hints.append(vocab.word2idx[word.lower()])
     return jsonify(next_word=(decode_word(gv["feature"],hints,decoder,vocab)))
 
 if __name__ == '__main__':
