@@ -169,6 +169,7 @@ class DecoderRNN(nn.Module):
         inputs = features
 
         _, states = self.lstm(inputs, states)
+        states_no_update = (states[0].clone(), states[1].clone())
         state_hist = []
 
         ce_tensor = []
@@ -178,8 +179,11 @@ class DecoderRNN(nn.Module):
         for i in range(input_size):
             if i > 0:
                 prev_h = states[0]
+
                 # conduct lstm step to get next cell state
                 _, states = self.lstm(inputs, states)
+                _, states_no_update = self.lstm(inputs, states_no_update)
+
             c_param = nn.Parameter(states[1].data)
             h_param = nn.Parameter(states[0].data)
             states = (h_param, c_param)
@@ -337,8 +341,8 @@ class DecoderRNN(nn.Module):
 
             inputs = self.embed(user_input[:,i].unsqueeze(0))
 
-        all_predictions = [torch.FloatTensor([[0] * self.linear.out_features])] * (input_size)
-        sampled_ids = [torch.LongTensor([[0]])] * (input_size)
+        all_predictions = [torch.FloatTensor([[0] * self.linear.out_features] * 2)] * (input_size)
+        sampled_ids = [torch.LongTensor([[0]] * 2)] * (input_size)
         
         """
         (2)
@@ -372,21 +376,29 @@ class DecoderRNN(nn.Module):
         """
         (1)
         """
+        inputs = torch.cat([inputs.clone(), inputs.clone()], 0)
+
         # Use final updated c_step to sample the remaining predictions
+        states = (torch.cat([states_no_update[0], states[0]], 0),
+                  torch.cat([states_no_update[1], states[1]], 0))
+        states = (pack_padded_sequence(states[0], [1,1], True),
+                  pack_padded_sequence(states[1], [1,1], True))
+        inputs = pack_padded_sequence(inputs, [1,1], True)
         for i in range(20 - input_size):
             hiddens, states = self.lstm(inputs, states)
-            predictions = self.linear(hiddens.squeeze(1))
+
+            predictions = self.linear(pad_packed_sequence(hiddens, True)[0].squeeze(1))
             all_predictions.append(predictions.data.cpu())
             
             predicted = predictions.max(1)[1].unsqueeze(1)
             sampled_ids.append(predicted.data.cpu())
 
-            inputs = self.embed(predicted)
+            inputs = pack_padded_sequence(self.embed(predicted), [1,1], True)
 
         all_predictions = torch.stack(all_predictions, 1)
         sampled_ids = torch.cat(sampled_ids, 1)
 
-        return sampled_ids.squeeze(), all_predictions.squeeze()
+        return sampled_ids, all_predictions
 
     def sample(self, features, user_input,vocab, states=None, c_step=0.0):
         """Samples captions for given image features (Greedy search)."""
