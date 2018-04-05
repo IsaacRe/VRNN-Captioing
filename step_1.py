@@ -30,7 +30,7 @@ def load_image(image_path, transform=None):
 
 def decode(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
     sampled_ids,_ = decoder.sample_beta(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
-    sampled_ids = sampled_ids.numpy()
+    sampled_ids = sampled_ids[0].numpy()
     
     # Decode word_ids to words
     sampled_caption = []
