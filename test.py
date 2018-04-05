@@ -120,12 +120,19 @@ def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
     
     # Decode word_ids to words
     sampled_caption = []
-    for word_id in sampled_ids:
+    sampled_caption_no_update = []
+    for word_id in sampled_ids[0]:
+        word = vocab.idx2word[word_id]
+        sampled_caption_no_update.append(word)
+        if word == '<end>':
+            break
+    for word_id in sampled_ids[1]:
         word = vocab.idx2word[word_id]
         sampled_caption.append(word)
         if word == '<end>':
             break
-    return ' '.join(sampled_caption[1:-1]), predictions
+
+    return ' '.join(sampled_caption_no_update[1:-1]), ' '.join(sampled_caption[1:-1]), predictions
 
 
 def decode_word(feature,user_input,decoder,vocab):
@@ -178,19 +185,18 @@ def crsEntropyLoss(caption,length, feature,vocab,num_hints,decoder,c_step,compar
         if len(caption.split()) <= num_hints:
             break
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
-    _, pred_no_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=0.0,prop_step=args.prop_steps,update_method=args.update_method)
-    _, pred_hint = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps,update_method=args.update_method)
-    pred_no_hint = to_var(pred_no_hint,volatile=True)
-    pred_hint = to_var(pred_hint,volatile=True)
+    _, _, predictions = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps,update_method=args.update_method)
+    pred_no_update = to_var(predictions[0],volatile=True)
+    pred_update = to_var(predictions[1],volatile=True)
     criterion = nn.CrossEntropyLoss()
-    result, result_hint = [], []
+    result, result_update = [], []
     for i in range(len(target)):
-        result.append(criterion(pred_no_hint[num_hints+1+i:num_hints+2+i], target[i:i+1]).cpu().data)
-        result_hint.append(criterion(pred_hint[num_hints+1+i:num_hints+2+i], target[i:i+1]).cpu().data)
-    result, result_hint = torch.cat(result, 0), torch.cat(result_hint, 0)
+        result.append(criterion(pred_no_update[num_hints+1+i:num_hints+2+i], target[i:i+1]).cpu().data)
+        result_update.append(criterion(pred_update[num_hints+1+i:num_hints+2+i], target[i:i+1]).cpu().data)
+    result, result_update = torch.cat(result, 0), torch.cat(result_update, 0)
     # cut the predication matrix to have the same length as caption in order to compute loss
     assert result.size(0) == compare_steps
-    return result.unsqueeze(1), result_hint.unsqueeze(1), compare_steps 
+    return result.unsqueeze(1), result_update.unsqueeze(1), compare_steps 
 
 
 def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_steps):
@@ -200,12 +206,9 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
         if len(caption.split()) <= num_hints:
             break
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
-    # get the output with no hint
-    # origin_sentence, pred_no_hint = decode(feature,[], decoder, vocab, c_step=c_step)
-    origin_sentence, pred_no_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=0.0, prop_step=args.prop_steps)
 
     # hint_sentence, pred_hint = decode(feature,teach_wordid,decoder,vocab,c_step=c_step)
-    hint_sentence, pred_hint = decode_beta(feature,teach_wordid, decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
+    _, _, predictions = decode_beta(feature,teach_wordid, decoder, vocab, c_step=c_step, prop_step=args.prop_steps)
     
     # get the ground truth ids for all steps following last user input
     gt_words = caption.split()[num_hints:]
@@ -213,8 +216,8 @@ def probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,compare_step
     gt_ids = torch.LongTensor([vocab.word2idx[word] for word in gt_words[:num_compare]])
     
     # get the predictions for all steps following last user input
-    pred_no_hint = pred_no_hint[num_hints+1:num_hints+1+num_compare] # <start> provided in user_input
-    pred_hint = pred_hint[num_hints+1:num_hints+1+num_compare]
+    pred_no_hint = predictions[0,num_hints+1:num_hints+1+num_compare] # <start> provided in user_input
+    pred_hint = predictions[1,num_hints+1:num_hints+1+num_compare]
 
     # calculate prediction scores for ground truth
     gt_score = pred_no_hint.gather(1,gt_ids.view(-1,1))
@@ -293,7 +296,10 @@ def main(args):
                 pickle.dump(measurement_score, f)
             print "Done. Data saved to {}".format(args.filepath)
     elif args.msm == "co":
-        cocoEval()
+        scores = cocoEval()
+        scores_u = cocoEval(res='data/captions_val2014_results_u.json')
+        print(scores)
+        print(scores_u)
 
 def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0, no_avg=True):
     transform = transforms.Compose([
@@ -319,6 +325,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     num_sampled = 0
     data_points = []
     coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
+    coco_json_update = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results_u.json')
 
     for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples and not args.test_c_step:
@@ -374,10 +381,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
                 crossEnlosses_hint.append(crossEnloss_hint)
         # Evaluate with pycoco tools
         elif args.msm == "co":
-            no_update, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
-                                       vocab, 0.0, args.prop_steps)
-            
-            pred_caption, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
+            no_update, pred_caption, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
                                           vocab, c_step, args.prop_steps)
             
             caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
@@ -388,7 +392,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             if args.load_val:
                 caption = None
 
-            coco_json.add_entry(img_id[0], ann_id[0], pred_caption, caption)
+            coco_json_update.add_entry(img_id[0], ann_id[0], pred_caption, caption)
+            coco_json.add_entry(img_id[0], ann_id[0], no_update, caption)
 
         if debug and not args.test_c_step:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
@@ -414,6 +419,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             return (crossEnlosses, crossEnlosses_hint)
     elif args.msm == "co":
         coco_json.create_json()
+        coco_json_update.create_json()
         return None
 
         
