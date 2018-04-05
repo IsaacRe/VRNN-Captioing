@@ -4,3 +4,4 @@
 *.pyc
 *.txt
 course.db-journal
+/pycocotoolscap
