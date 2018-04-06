@@ -1,7 +1,9 @@
 /data
+course.db-journal
 /models
 /static/*
 *.pyc
 *.txt
 course.db-journal
 /pycocotoolscap
+/pycocoevalcap
