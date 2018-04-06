@@ -29,8 +29,8 @@ def load_image(image_path, transform=None):
     return image
 
 def decode(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
-    sampled_ids,_ = decoder.sample_beta(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
-    sampled_ids = sampled_ids[0].numpy()
+    sampled, _ = decoder.sample_beta(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
+    sampled_ids, sampled_ids_u = sampled[0].numpy(), sampled[1].numpy()
     
     # Decode word_ids to words
     sampled_caption = []
@@ -39,8 +39,15 @@ def decode(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
         sampled_caption.append(word)
         if word == '<end>':
             break
+    # Decode word_ids_u to words
+    sampled_caption_u = []
+    for word_id in sampled_ids_u:
+        word = vocab.idx2word[word_id]
+        sampled_caption_u.append(word)
+        if word == '<end>':
+            break
 
-    return ' '.join(sampled_caption)
+    return ' '.join(sampled_caption), ' '.join(sampled_caption_u)
 
 def decode_word(feature,user_input,decoder,vocab):
     sampled_ids = decoder.next_word(feature,user_input,3)

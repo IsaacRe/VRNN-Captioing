@@ -20,15 +20,15 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 class CocoJson:
 
-    def __init__(self, val_json, res_json):
-        self.val_json = val_json
-        self.res_json = res_json
+    def __init__(self, gt_json, pred_json):
+        self.gt_json = gt_json
+        self.pred_json = pred_json
         self.idncaption = []
         self.idnimage = []
         self.idnprediction = []
         self.imgids = []
 
-    def add_entry(self, img_id=1, ann_id=1, pred_caption='', caption=None):
+    def add_entry(self, img_id=1, ann_id=1, caption=None, pred_caption=''):
         if img_id in self.imgids:
             return
         self.imgids.append(img_id)
@@ -71,10 +71,10 @@ class CocoJson:
                         "annotations": self.idncaption,
                         "images": self.idnimage,
                         }
-            with open(self.val_json, 'w+') as f:
+            with open(self.gt_json, 'w+') as f:
                 json.dump(formatted, f)
 
-        with open(self.res_json, 'w+') as f:
+        with open(self.pred_json, 'w+') as f:
             json.dump(self.idnprediction, f)
 
         self.idncaption = []
