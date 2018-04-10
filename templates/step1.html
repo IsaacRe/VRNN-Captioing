@@ -1,28 +1,22 @@
 {% extends "main.html" %}
 {% block content %}
 {% include "header.html" %}
-
-	<div class="row divider blue">
-		<div class="col-md-12"></div>
-	</div>
-	<div class="row banner main">
-		<div class="col-md-2"></div>
-		<div class="col-md-10 padding-none">
-			<h1>Image Captioning Autocompletion</h1>
-		</div>
-	</div>
-
-	<div class="row padding-top padding-bottom">
-	</div>
+	<nav aria-label="breadcrumb">
+	  <ol class="breadcrumb">
+	    <li class="breadcrumb-item"><a href="{{url_for('showDemos')}}">Home</a></li>
+	    <li class="breadcrumb-item"><a href="{{url_for('selectImage')}}">Select</a></li>
+	    <li class="breadcrumb-item active" aria-current="page">{{image.name}}</li>
+	  </ol>
+	</nav>
 
 	<div class="container">
 		<div class="row">
 		<div class="col-md-4"></div>
-			<img src="{{image.name}}" align="middle">
+			<img src="{{image.path}}" align="middle">
 		</div>
 
 		<div class="col-md-10 padding-none">
-			<a href="{{url_for('extractFeature')}}">
+			<a href="{{url_for('extractFeature',image_id=image.id)}}">
 				<button class="btn btn-default">
 					<span class="glyphicon glyphicon-list-alt" aria-hidden="true"></span>Test
 				</button>

@@ -51,8 +51,14 @@ def showDemos():
 
 #Show a course's all instructors
 @app.route('/demo/step1')
-def showStep1():
-    image = session.query(Input).filter_by(id = 2).one()
+def selectImage():
+    images = session.query(Input).order_by(asc(Input.id))
+    return render_template("selectImage.html",images = images)
+
+@app.route('/demo/step1/<path:image_id>')
+def showStep1(image_id):
+    print image_id
+    image = session.query(Input).filter_by(id = image_id).one()
     return render_template('step1.html',image=image)
 
 
@@ -61,11 +67,11 @@ def showNextWord():
     image = session.query(Input).filter_by(id = 2).one()
     return render_template('step1_nextword.html',image=image)
 
-@app.route('/demo/step1/test',methods=['GET','POST'])
-def extractFeature():
+@app.route('/demo/step1/test/<path:image_id>',methods=['GET','POST'])
+def extractFeature(image_id):
     if request.method == 'GET':
-        image = session.query(Input).filter_by(id = 2).one()
-        feature = encode("."+image.name,vocab)
+        image = session.query(Input).filter_by(id = image_id).one()
+        feature = encode("."+image.path,vocab)
         gv["feature"]=feature
         sentence_wo_update,sentence_with_update = decode(feature,[],decoder,vocab,c_step=5.0)
         print sentence_wo_update
@@ -91,7 +97,7 @@ def extractFeature():
             hint_word = []
             hints.append(vocab.word2idx["<start>"])
             hint_word = ["<start>"]
-            image = session.query(Input).filter_by(id = 2).one()
+            image = session.query(Input).filter_by(id = image_id).one()
             for word in (request.form['hint']).split():
                 hints.append(vocab.word2idx[word.lower()])
                 hint_word.append(word)
@@ -121,7 +127,7 @@ def extractFeature():
 def extractFeature_nextword():
     if request.method == 'GET':
         image = session.query(Input).filter_by(id = 2).one()
-        feature = encode("."+image.name,vocab)
+        feature = encode("."+image.path,vocab)
         gv["feature"]=feature
         sentence = decode(feature,[],decoder,vocab)
         print sentence

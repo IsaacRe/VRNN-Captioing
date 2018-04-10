@@ -1,24 +1,16 @@
 {% extends "main.html" %}
 {% block content %}
 {% include "header.html" %}
-	<div class="row divider blue">
-		<div class="col-md-12"></div>
-	</div>
-	<div class="row banner main">
-		<div class="col-md-2"></div>
-		<div class="col-md-10 padding-none">
-			<h1>Image Captioning Autocompletion</h1>
-		</div>
-	</div>
-
-
-	<div class="row padding-top padding-bottom">
-	</div>
+	<nav aria-label="breadcrumb">
+	  <ol class="breadcrumb">
+	    <li class="breadcrumb-item active" aria-current="page">Home</li>
+	  </ol>
+	</nav>
 	<div class="container">
 
         <div class="row">
 		    <div class="col-md-3">
-				<a href = "{{url_for('showStep1')}}">
+				<a href = "{{url_for('selectImage')}}">
 					<div class="row">
 						<div class="col-md-1"></div>
 							<div class="col-md-10 course-list">
@@ -28,7 +20,7 @@
 					</div>
 				</a>
 
-				<a href = "{{url_for('showNextWord')}}">
+				<a href = "#">
 					<div class="row">
 						<div class="col-md-1"></div>
 							<div class="col-md-10 course-list">
@@ -38,7 +30,7 @@
 					</div>
 				</a>
 
-				<a href = "{{url_for('showStep1')}}">
+				<a href = "#">
 					<div class="row">
 						<div class="col-md-1"></div>
 							<div class="col-md-10 course-list">

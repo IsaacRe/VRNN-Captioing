@@ -9,7 +9,8 @@ class Input(Base):
     __tablename__ = 'input'
 
     id = Column(Integer, primary_key = True)
-    name = Column(String(250), nullable = False)
+    name = Column(String(250), nullable = True)
+    path = Column(String(250), nullable = False)
     ground_true = Column(String(250), nullable = False)
     translation = Column(String(250), nullable = True)
 

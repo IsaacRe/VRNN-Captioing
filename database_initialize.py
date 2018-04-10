@@ -19,20 +19,23 @@ session = DBSession()
 
 session.query(Input).delete()
 
-input1 = Input(id=1,name="/static/step1/image_1.jpg",
-	ground_true="<start> Several planes lined up on a runway during a cloudy day. <end>")
+input1 = Input(id=1,path="/static/step1/image_1.jpg",
+	ground_true="<start> Several planes lined up on a runway during a cloudy day. <end>",
+	name = "airplane")
 session.add(input1)
 session.commit()
 
 
-input2 = Input(id=2,name="/static/step1/image_2.jpg",
-	ground_true="<start> A balding man is holding a black microphone. <end>")
+input2 = Input(id=2,path="/static/step1/image_2.jpg",
+	ground_true="<start> A balding man is holding a black microphone. <end>",
+	name = "bold man with microphone")
 session.add(input2)
 session.commit()
 
 
-input3 = Input(id=3,name="/static/step1/image_3.jpg",
-	ground_true="<start> A bald man in a suit looking down at something <end>")
+input3 = Input(id=3,path="/static/step1/image_3.jpg",
+	ground_true="<start> A bald man in a suit looking down at something <end>",
+	name = "bold man in black suit")
 session.add(input3)
 session.commit()
 
