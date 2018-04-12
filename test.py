@@ -392,8 +392,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             if args.load_val:
                 caption = None
 
-            coco_json_update.add_entry(img_id[0], ann_id[0], pred_caption, caption)
-            coco_json.add_entry(img_id[0], ann_id[0], no_update, caption)
+            coco_json_update.add_entry(img_id[0], ann_id[0], caption, pred_caption)
+            coco_json.add_entry(img_id[0], ann_id[0], caption, no_update)
 
         if debug and not args.test_c_step:
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
