@@ -115,7 +115,7 @@ def decode(feature,user_input,decoder,vocab,c_step=0.0):
     return ' '.join(sampled_caption), predictions
 
 def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
-    sampled_ids, predictions = decoder.sample_beta(feature,user_input,vocab,c_step=c_step, prop_step=prop_step, update_method=args.update_method)
+    sampled_ids, predictions = decoder.sample(feature,user_input,vocab,c_step=c_step, prop_step=prop_step, update_method=args.update_method)
     sampled_ids = sampled_ids.numpy()
     
     # Decode word_ids to words
@@ -148,23 +148,6 @@ def decode_word(feature,user_input,decoder,vocab):
             break
     return sampled_caption
 
-def encode(img,vocab):
-    transform = transforms.Compose([
-            transforms.ToTensor(), 
-            transforms.Normalize((0.485, 0.456, 0.406), 
-                                 (0.229, 0.224, 0.225))])
-    encoder = EncoderCNN(256)
-    encoder.eval()  # evaluation mode (BN uses moving mean/variance)
-    encoder.load_state_dict(torch.load('./models/encoder-4-3000.pkl'))
-    image = load_image(img, transform)
-    image_tensor = to_var(image, volatile=True)
-    
-    # If use gpu
-    if torch.cuda.is_available():
-        encoder.cuda()
-    feature = encoder(image_tensor)
-    return feature
-
 def crsEntropyLoss(caption,length, feature,vocab,num_hints,decoder,c_step,compare_steps):
     # Since sampled caption always has a length <= 20
     if num_hints + compare_steps + 1 > min(length[0], 20):
@@ -185,7 +168,7 @@ def crsEntropyLoss(caption,length, feature,vocab,num_hints,decoder,c_step,compar
         if len(caption.split()) <= num_hints:
             break
         teach_wordid.append(vocab.word2idx[caption.split()[i].lower()])
-    _, _, predictions = decoder.sample_beta(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps,update_method=args.update_method)
+    _, _, predictions = decoder.sample(feature,teach_wordid,vocab,c_step=c_step,prop_step=args.prop_steps,update_method=args.update_method)
     pred_no_update = to_var(predictions[0],volatile=True)
     pred_update = to_var(predictions[1],volatile=True)
     criterion = nn.CrossEntropyLoss()
@@ -439,7 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('--c_step', type=float , default=0.0)
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=-1)
-    parser.add_argument('--msm',type=str,default="ps",
+    parser.add_argument('--msm',type=str,default="co",
             help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     parser.add_argument('--test_prop0', action='store_true')
     parser.add_argument('--test_c_step', action='store_true')
