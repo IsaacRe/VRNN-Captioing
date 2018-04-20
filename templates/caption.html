@@ -13,25 +13,17 @@
 		<div class="row">
 			<div class="col-md-3">
 				<h2>Translation with Update:</h2>
-				<h3>{{image.translation_Update}}</h3>
+				<h3><span style="background-color:yellow;">{{hint_word}}</span>{{image.translation_Update}}</h3>
                 <div>
                     <h4>METEOR: {{"%.4f"%image.evalcap_Update['METEOR']}}</h4>
-                    <h4>Bleu_4: {{"%.4f"%image.evalcap_Update['Bleu_4']}}</h4>
-                    <h4>Bleu_3: {{"%.4f"%image.evalcap_Update['Bleu_3']}}</h4>
-                    <h4>Bleu_2: {{"%.4f"%image.evalcap_Update['Bleu_2']}}</h4>
-                    <h4>Bleu_1: {{"%.4f"%image.evalcap_Update['Bleu_1']}}</h4>
                     <h4>CIDEr: {{"%.4f"%image.evalcap_Update['CIDEr']}}</h4>
                 </div>
 			</div>
 			<div class="col-md-3">
 				<h2>Translation w/o Update:</h2>
-				<h3>{{image.translation_noUpdate}}</h3>
+				<h3><span style="background-color:yellow;">{{hint_word}}</span>{{image.translation_noUpdate}}</h3>
                 <div>
                     <h4>METEOR: {{"%.4f"%image.evalcap_noUpdate['METEOR']}}</h4>
-                    <h4>Bleu_4: {{"%.4f"%image.evalcap_noUpdate['Bleu_4']}}</h4>
-                    <h4>Bleu_3: {{"%.4f"%image.evalcap_noUpdate['Bleu_3']}}</h4>
-                    <h4>Bleu_2: {{"%.4f"%image.evalcap_noUpdate['Bleu_2']}}</h4>
-                    <h4>Bleu_1: {{"%.4f"%image.evalcap_noUpdate['Bleu_1']}}</h4>
                     <h4>CIDEr: {{"%.4f"%image.evalcap_noUpdate['CIDEr']}}</h4>
                 </div>
 			</div>
