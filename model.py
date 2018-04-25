@@ -56,6 +56,24 @@ class DecoderRNN(nn.Module):
         outputs = self.linear(hiddens[0])
         return outputs
 
+    def introspective_forward(self, features, captions, lengths, hints = 0, states= None):
+        outputs = []
+        inputs = features.unsqueeze(1)
+        for i in range(lengths[0]):                            
+            hiddens, states = self.lstm(inputs, states)    # (batch_size, 1, hidden_size), 
+            output = self.linear(hiddens.squeeze(1))      # (batch_size, vocab_size)
+            outputs.append(output)
+            predicted = output.max(1)[1]
+            if hints > 0:
+                inputs = self.embed(captions[:, i])         # if hints > 0, instead of passing previous predictions to generate the next, we pass in the ground truth instead.
+                hints = hints - 1                           # decrement hints by 1.
+            else:                                           # if hints == 0, we use the prediction.
+                inputs = self.embed(predicted)
+            inputs = inputs.unsqueeze(1)                    # (batch_size, 1, embed_size)
+        outputs = torch.stack(outputs, 1)                     # stack the outputs to BxTx* shape.  
+        outputs = pack_padded_sequence(outputs, lengths, batch_first=True) # pack the shape with lengths
+        return outputs[0]
+    
     def h_from_c(self, x, h, c):
         # get weights
         w_io = Variable(self.lstm.weight_ih_l0.data[self.lstm.hidden_size*3:])
