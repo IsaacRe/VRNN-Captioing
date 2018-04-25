@@ -133,7 +133,7 @@ class DecoderRNN(nn.Module):
 
         # Make user input a tensor
         input_size = 0
-	if type(user_input) == list:
+        if type(user_input) == list:
             if user_input != []:
                 user_input = Variable(torch.cuda.LongTensor([user_input]))
                 input_size = user_input.size(1)
@@ -275,29 +275,24 @@ class DecoderRNN(nn.Module):
 
             inputs = self.embed(user_input[:,i].unsqueeze(0))
 
-        all_predictions = [torch.FloatTensor([[0] * self.linear.out_features] * 2)] * (input_size)
+        outputs = []
         sampled_ids = [torch.LongTensor([[0]] * 2)] * (input_size)
         
-        inputs = torch.cat([inputs.clone(), inputs.clone()], 0)
+        inputs = torch.cat([inputs.clone(), inputs.clone()], 0) # input should be in shape batch_size, 1, hidden_size
 
         # Use final updated c_step to sample the remaining predictions
-        states = (torch.cat([states_no_update[0], states[0]], 0),
-                  torch.cat([states_no_update[1], states[1]], 0))
-        states = (pack_padded_sequence(states[0], [1,1], True),
-                  pack_padded_sequence(states[1], [1,1], True))
-        inputs = pack_padded_sequence(inputs, [1,1], True)
+        states = (torch.cat([states_no_update[0], states[0]], 1),
+                  torch.cat([states_no_update[1], states[1]], 1)) # states [0][1] should be in size 1, batchsize, hidden
         for i in range(20 - input_size):
             hiddens, states = self.lstm(inputs, states)
-
-            predictions = self.linear(pad_packed_sequence(hiddens, True)[0].squeeze(1))
-            all_predictions.append(predictions.data.cpu())
+            output = self.linear(hiddens.squeeze(1))
+            outputs.append(output.data.cpu())
             
-            predicted = predictions.max(1)[1].unsqueeze(1)
+            predicted = output.max(1)[1]
             sampled_ids.append(predicted.data.cpu())
+            inputs = self.embed(predicted).unsqueeze(1)
 
-            inputs = pack_padded_sequence(self.embed(predicted), [1,1], True)
-
-        all_predictions = torch.stack(all_predictions, 1)
+        all_predictions = torch.stack(outputs, 1)
         sampled_ids = torch.cat(sampled_ids, 1)
 
         return sampled_ids, all_predictions
