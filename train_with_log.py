@@ -102,7 +102,7 @@ def train_one_epoch(data_loader_train, encoder, decoder, criterion, optimizer, e
         # Print log info
         if i % args.log_step == 0:
             log_string(log_fout, 'Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
-                  %(epoch, args.num_epochs, i, total_step_train, 
+                  %(epoch, args.num_epochs, i, min(num_iterations, total_step_train), 
                     loss.data[0], np.exp(loss.data[0]))) 
 
         # Save the models
@@ -115,7 +115,13 @@ def train_one_epoch(data_loader_train, encoder, decoder, criterion, optimizer, e
                                     'encoder-%d-%d.pkl' %(epoch+1, i+1)))
 
     log_string(log_fout, 'Avg Train Loss: %.4f'%(np.mean(losses)))
-
+    torch.save(decoder.state_dict(), 
+               os.path.join(args.model_path, 
+                            'decoder-%d-epoch.pkl' %(epoch+1)))
+    torch.save(encoder.state_dict(), 
+               os.path.join(args.model_path, 
+                            'encoder-%d-epoch.pkl' %(epoch+1)))
+    
 def eval_one_epoch(data_loader_eval, encoder, decoder, criterion, epoch, args, log_fout):
     losses = []
     total_step_eval = len(data_loader_eval)

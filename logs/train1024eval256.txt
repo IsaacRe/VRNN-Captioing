@@ -1,404 +1,604 @@
-Namespace(batch_size=128, caption_path='./data/annotations/captions_train2014.json', crop_size=224, embed_size=256, hidden_size=512, image_dir='./data/resized2014', learning_rate=0.001, log_path='logs/train1024eval256.txt', log_step=10, model_path='./models/', num_epochs=50, num_eval_samples=256, num_hints=-1, num_layers=1, num_train_samples=1024, num_workers=2, save_step=1000, vocab_path='./data/vocab.pkl')
+Namespace(batch_size=128, caption_path='./data/annotations/captions_train2014.json', crop_size=224, embed_size=256, hidden_size=512, image_dir='./data/resized2014', learning_rate=0.001, log_path='logs/train1024eval256.txt', log_step=2, model_path='./models/', num_epochs=50, num_eval_samples=256, num_hints=-1, num_layers=1, num_train_samples=1024, num_workers=2, save_step=2, vocab_path='./data/vocab.pkl')
 We are using the number of hints = -1
-[Start Time] 2018-04-24 22:57:47.663902
+[Start Time] 2018-04-25 13:00:57.233679
 ====================================================================
-Epoch [0/50], Step [0/3236], Loss: 9.2036, Perplexity: 9933.3054
+Epoch [0/50], Step [0/8], Loss: 9.2087, Perplexity: 9983.3164
+Epoch [0/50], Step [2/8], Loss: 9.1281, Perplexity: 9210.3773
+Epoch [0/50], Step [4/8], Loss: 8.9965, Perplexity: 8074.4032
+Epoch [0/50], Step [6/8], Loss: 8.5930, Perplexity: 5393.7987
+Epoch [0/50], Step [8/8], Loss: 7.3695, Perplexity: 1586.9115
 Trained 1024 samples
-Avg Train Loss: 8.6563
-Train time Usage: 0:00:05.582774
+Avg Train Loss: 8.7111
+Train time Usage: 0:00:10.077841
 Evaluated 256 samples
-Avg Eval Loss: 7.0671
-Eval time Usage: 0:00:02.510291
+Avg Eval Loss: 7.0768
+Eval time Usage: 0:00:02.224048
 ====================================================================
-Epoch [1/50], Step [0/3236], Loss: 7.0206, Perplexity: 1119.4969
+Epoch [1/50], Step [0/8], Loss: 7.0427, Perplexity: 1144.4187
+Epoch [1/50], Step [2/8], Loss: 6.5287, Perplexity: 684.5158
+Epoch [1/50], Step [4/8], Loss: 6.0654, Perplexity: 430.6905
+Epoch [1/50], Step [6/8], Loss: 5.9600, Perplexity: 387.6016
+Epoch [1/50], Step [8/8], Loss: 5.8219, Perplexity: 337.6142
 Trained 1024 samples
-Avg Train Loss: 6.2906
-Train time Usage: 0:00:05.472442
+Avg Train Loss: 6.2969
+Train time Usage: 0:00:09.871232
 Evaluated 256 samples
-Avg Eval Loss: 5.8063
-Eval time Usage: 0:00:02.190455
+Avg Eval Loss: 5.8596
+Eval time Usage: 0:00:02.218533
 ====================================================================
-Epoch [2/50], Step [0/3236], Loss: 5.9273, Perplexity: 375.1428
+Epoch [2/50], Step [0/8], Loss: 5.7657, Perplexity: 319.1636
+Epoch [2/50], Step [2/8], Loss: 5.5145, Perplexity: 248.2674
+Epoch [2/50], Step [4/8], Loss: 5.4156, Perplexity: 224.8771
+Epoch [2/50], Step [6/8], Loss: 5.3736, Perplexity: 215.6417
+Epoch [2/50], Step [8/8], Loss: 5.2434, Perplexity: 189.3153
 Trained 1024 samples
-Avg Train Loss: 5.4509
-Train time Usage: 0:00:05.460710
+Avg Train Loss: 5.4909
+Train time Usage: 0:00:08.034134
 Evaluated 256 samples
-Avg Eval Loss: 5.2535
-Eval time Usage: 0:00:02.181226
+Avg Eval Loss: 5.2530
+Eval time Usage: 0:00:02.333720
 ====================================================================
-Epoch [3/50], Step [0/3236], Loss: 5.1309, Perplexity: 169.1679
+Epoch [3/50], Step [0/8], Loss: 5.0922, Perplexity: 162.7535
+Epoch [3/50], Step [2/8], Loss: 5.0003, Perplexity: 148.4525
+Epoch [3/50], Step [4/8], Loss: 5.0021, Perplexity: 148.7303
+Epoch [3/50], Step [6/8], Loss: 5.0242, Perplexity: 152.0458
+Epoch [3/50], Step [8/8], Loss: 4.8677, Perplexity: 130.0218
 Trained 1024 samples
-Avg Train Loss: 5.0441
-Train time Usage: 0:00:05.434771
+Avg Train Loss: 5.0222
+Train time Usage: 0:00:07.909634
 Evaluated 256 samples
-Avg Eval Loss: 5.0098
-Eval time Usage: 0:00:02.176336
+Avg Eval Loss: 4.9800
+Eval time Usage: 0:00:02.382562
 ====================================================================
-Epoch [4/50], Step [0/3236], Loss: 4.9237, Perplexity: 137.5167
+Epoch [4/50], Step [0/8], Loss: 4.9115, Perplexity: 135.8412
+Epoch [4/50], Step [2/8], Loss: 4.9314, Perplexity: 138.5761
+Epoch [4/50], Step [4/8], Loss: 4.7762, Perplexity: 118.6525
+Epoch [4/50], Step [6/8], Loss: 4.6738, Perplexity: 107.1076
+Epoch [4/50], Step [8/8], Loss: 4.6666, Perplexity: 106.3407
 Trained 1024 samples
-Avg Train Loss: 4.8617
-Train time Usage: 0:00:05.523091
+Avg Train Loss: 4.7765
+Train time Usage: 0:00:07.710427
 Evaluated 256 samples
-Avg Eval Loss: 4.8814
-Eval time Usage: 0:00:02.224696
+Avg Eval Loss: 4.8481
+Eval time Usage: 0:00:02.247317
 ====================================================================
-Epoch [5/50], Step [0/3236], Loss: 4.7353, Perplexity: 113.8983
+Epoch [5/50], Step [0/8], Loss: 4.5960, Perplexity: 99.0893
+Epoch [5/50], Step [2/8], Loss: 4.7405, Perplexity: 114.4909
+Epoch [5/50], Step [4/8], Loss: 4.6521, Perplexity: 104.8030
+Epoch [5/50], Step [6/8], Loss: 4.5365, Perplexity: 93.3673
+Epoch [5/50], Step [8/8], Loss: 4.5975, Perplexity: 99.2317
 Trained 1024 samples
-Avg Train Loss: 4.6963
-Train time Usage: 0:00:05.472352
+Avg Train Loss: 4.6436
+Train time Usage: 0:00:07.866592
 Evaluated 256 samples
-Avg Eval Loss: 4.8319
-Eval time Usage: 0:00:02.155034
+Avg Eval Loss: 4.8220
+Eval time Usage: 0:00:02.350851
 ====================================================================
-Epoch [6/50], Step [0/3236], Loss: 4.5779, Perplexity: 97.3140
+Epoch [6/50], Step [0/8], Loss: 4.5881, Perplexity: 98.3103
+Epoch [6/50], Step [2/8], Loss: 4.4127, Perplexity: 82.4890
+Epoch [6/50], Step [4/8], Loss: 4.6190, Perplexity: 101.3966
+Epoch [6/50], Step [6/8], Loss: 4.5428, Perplexity: 93.9547
+Epoch [6/50], Step [8/8], Loss: 4.4294, Perplexity: 83.8836
 Trained 1024 samples
-Avg Train Loss: 4.5615
-Train time Usage: 0:00:05.505270
+Avg Train Loss: 4.5224
+Train time Usage: 0:00:07.906129
 Evaluated 256 samples
-Avg Eval Loss: 4.8043
-Eval time Usage: 0:00:02.222336
+Avg Eval Loss: 4.8021
+Eval time Usage: 0:00:02.329258
 ====================================================================
-Epoch [7/50], Step [0/3236], Loss: 4.5465, Perplexity: 94.3000
+Epoch [7/50], Step [0/8], Loss: 4.5501, Perplexity: 94.6392
+Epoch [7/50], Step [2/8], Loss: 4.5673, Perplexity: 96.2813
+Epoch [7/50], Step [4/8], Loss: 4.4163, Perplexity: 82.7854
+Epoch [7/50], Step [6/8], Loss: 4.2750, Perplexity: 71.8829
+Epoch [7/50], Step [8/8], Loss: 4.3572, Perplexity: 78.0396
 Trained 1024 samples
-Avg Train Loss: 4.4660
-Train time Usage: 0:00:05.558793
+Avg Train Loss: 4.4340
+Train time Usage: 0:00:08.203044
 Evaluated 256 samples
-Avg Eval Loss: 4.8809
-Eval time Usage: 0:00:02.197817
+Avg Eval Loss: 4.8340
+Eval time Usage: 0:00:02.323496
 ====================================================================
-Epoch [8/50], Step [0/3236], Loss: 4.3715, Perplexity: 79.1657
+Epoch [8/50], Step [0/8], Loss: 4.3372, Perplexity: 76.4936
+Epoch [8/50], Step [2/8], Loss: 4.3109, Perplexity: 74.5048
+Epoch [8/50], Step [4/8], Loss: 4.3028, Perplexity: 73.9067
+Epoch [8/50], Step [6/8], Loss: 4.3856, Perplexity: 80.2852
+Epoch [8/50], Step [8/8], Loss: 4.2890, Perplexity: 72.8954
 Trained 1024 samples
-Avg Train Loss: 4.3561
-Train time Usage: 0:00:05.505181
+Avg Train Loss: 4.3514
+Train time Usage: 0:00:07.956395
 Evaluated 256 samples
-Avg Eval Loss: 4.8967
-Eval time Usage: 0:00:02.385724
+Avg Eval Loss: 4.9122
+Eval time Usage: 0:00:02.243946
 ====================================================================
-Epoch [9/50], Step [0/3236], Loss: 4.2779, Perplexity: 72.0856
+Epoch [9/50], Step [0/8], Loss: 4.2711, Perplexity: 71.6026
+Epoch [9/50], Step [2/8], Loss: 4.2626, Perplexity: 70.9971
+Epoch [9/50], Step [4/8], Loss: 4.3025, Perplexity: 73.8860
+Epoch [9/50], Step [6/8], Loss: 4.2141, Perplexity: 67.6328
+Epoch [9/50], Step [8/8], Loss: 4.2894, Perplexity: 72.9262
 Trained 1024 samples
-Avg Train Loss: 4.2815
-Train time Usage: 0:00:05.639980
+Avg Train Loss: 4.2599
+Train time Usage: 0:00:07.781696
 Evaluated 256 samples
-Avg Eval Loss: 5.0763
-Eval time Usage: 0:00:02.323569
+Avg Eval Loss: 4.8742
+Eval time Usage: 0:00:02.293428
 ====================================================================
-Epoch [10/50], Step [0/3236], Loss: 4.2049, Perplexity: 67.0169
+Epoch [10/50], Step [0/8], Loss: 4.1257, Perplexity: 61.9090
+Epoch [10/50], Step [2/8], Loss: 4.1473, Perplexity: 63.2598
+Epoch [10/50], Step [4/8], Loss: 4.1775, Perplexity: 65.2009
+Epoch [10/50], Step [6/8], Loss: 4.1081, Perplexity: 60.8304
+Epoch [10/50], Step [8/8], Loss: 4.1487, Perplexity: 63.3520
 Trained 1024 samples
-Avg Train Loss: 4.1783
-Train time Usage: 0:00:05.549846
+Avg Train Loss: 4.1328
+Train time Usage: 0:00:07.664445
 Evaluated 256 samples
-Avg Eval Loss: 4.9524
-Eval time Usage: 0:00:02.343201
+Avg Eval Loss: 4.9088
+Eval time Usage: 0:00:02.382541
 ====================================================================
-Epoch [11/50], Step [0/3236], Loss: 4.0932, Perplexity: 59.9307
+Epoch [11/50], Step [0/8], Loss: 3.9878, Perplexity: 53.9352
+Epoch [11/50], Step [2/8], Loss: 4.0276, Perplexity: 56.1264
+Epoch [11/50], Step [4/8], Loss: 4.1429, Perplexity: 62.9827
+Epoch [11/50], Step [6/8], Loss: 4.0945, Perplexity: 60.0064
+Epoch [11/50], Step [8/8], Loss: 4.0139, Perplexity: 55.3648
 Trained 1024 samples
-Avg Train Loss: 4.1226
-Train time Usage: 0:00:05.792311
+Avg Train Loss: 4.0684
+Train time Usage: 0:00:07.687996
 Evaluated 256 samples
-Avg Eval Loss: 4.9645
-Eval time Usage: 0:00:02.393841
+Avg Eval Loss: 4.9978
+Eval time Usage: 0:00:02.334082
 ====================================================================
-Epoch [12/50], Step [0/3236], Loss: 3.9199, Perplexity: 50.3978
+Epoch [12/50], Step [0/8], Loss: 4.0126, Perplexity: 55.2927
+Epoch [12/50], Step [2/8], Loss: 3.9662, Perplexity: 52.7835
+Epoch [12/50], Step [4/8], Loss: 3.9991, Perplexity: 54.5509
+Epoch [12/50], Step [6/8], Loss: 4.0105, Perplexity: 55.1749
+Epoch [12/50], Step [8/8], Loss: 3.9583, Perplexity: 52.3698
 Trained 1024 samples
-Avg Train Loss: 4.0025
-Train time Usage: 0:00:05.832503
+Avg Train Loss: 4.0378
+Train time Usage: 0:00:06.810718
 Evaluated 256 samples
-Avg Eval Loss: 5.0280
-Eval time Usage: 0:00:02.345580
+Avg Eval Loss: 4.9922
+Eval time Usage: 0:00:02.384938
 ====================================================================
-Epoch [13/50], Step [0/3236], Loss: 4.0652, Perplexity: 58.2761
+Epoch [13/50], Step [0/8], Loss: 3.9374, Perplexity: 51.2857
+Epoch [13/50], Step [2/8], Loss: 3.9394, Perplexity: 51.3886
+Epoch [13/50], Step [4/8], Loss: 3.9206, Perplexity: 50.4319
+Epoch [13/50], Step [6/8], Loss: 3.8614, Perplexity: 47.5302
+Epoch [13/50], Step [8/8], Loss: 3.8450, Perplexity: 46.7602
 Trained 1024 samples
-Avg Train Loss: 3.9251
-Train time Usage: 0:00:05.940191
+Avg Train Loss: 3.9059
+Train time Usage: 0:00:06.805091
 Evaluated 256 samples
-Avg Eval Loss: 5.0749
-Eval time Usage: 0:00:02.346382
+Avg Eval Loss: 5.0403
+Eval time Usage: 0:00:02.294687
 ====================================================================
-Epoch [14/50], Step [0/3236], Loss: 4.0098, Perplexity: 55.1359
+Epoch [14/50], Step [0/8], Loss: 3.8625, Perplexity: 47.5856
+Epoch [14/50], Step [2/8], Loss: 3.8833, Perplexity: 48.5822
+Epoch [14/50], Step [4/8], Loss: 3.7951, Perplexity: 44.4807
+Epoch [14/50], Step [6/8], Loss: 3.8364, Perplexity: 46.3605
+Epoch [14/50], Step [8/8], Loss: 3.8679, Perplexity: 47.8402
 Trained 1024 samples
-Avg Train Loss: 3.8778
-Train time Usage: 0:00:06.029371
+Avg Train Loss: 3.8333
+Train time Usage: 0:00:07.103987
 Evaluated 256 samples
-Avg Eval Loss: 5.1143
-Eval time Usage: 0:00:02.285709
+Avg Eval Loss: 5.0913
+Eval time Usage: 0:00:02.334077
 ====================================================================
-Epoch [15/50], Step [0/3236], Loss: 4.0117, Perplexity: 55.2414
+Epoch [15/50], Step [0/8], Loss: 3.8313, Perplexity: 46.1202
+Epoch [15/50], Step [2/8], Loss: 3.8346, Perplexity: 46.2770
+Epoch [15/50], Step [4/8], Loss: 3.8646, Perplexity: 47.6862
+Epoch [15/50], Step [6/8], Loss: 3.7776, Perplexity: 43.7104
+Epoch [15/50], Step [8/8], Loss: 3.8479, Perplexity: 46.8955
 Trained 1024 samples
-Avg Train Loss: 3.8930
-Train time Usage: 0:00:06.056621
+Avg Train Loss: 3.8165
+Train time Usage: 0:00:06.789359
 Evaluated 256 samples
-Avg Eval Loss: 5.1933
-Eval time Usage: 0:00:02.354384
+Avg Eval Loss: 5.1235
+Eval time Usage: 0:00:02.347720
 ====================================================================
-Epoch [16/50], Step [0/3236], Loss: 3.7784, Perplexity: 43.7461
+Epoch [16/50], Step [0/8], Loss: 3.9336, Perplexity: 51.0908
+Epoch [16/50], Step [2/8], Loss: 3.9388, Perplexity: 51.3566
+Epoch [16/50], Step [4/8], Loss: 3.9070, Perplexity: 49.7513
+Epoch [16/50], Step [6/8], Loss: 3.7902, Perplexity: 44.2644
+Epoch [16/50], Step [8/8], Loss: 3.8194, Perplexity: 45.5756
 Trained 1024 samples
-Avg Train Loss: 3.7845
-Train time Usage: 0:00:05.790770
+Avg Train Loss: 3.8090
+Train time Usage: 0:00:06.744267
 Evaluated 256 samples
-Avg Eval Loss: 5.2425
-Eval time Usage: 0:00:02.331931
+Avg Eval Loss: 5.1905
+Eval time Usage: 0:00:02.362830
 ====================================================================
-Epoch [17/50], Step [0/3236], Loss: 3.7966, Perplexity: 44.5516
+Epoch [17/50], Step [0/8], Loss: 3.8281, Perplexity: 45.9748
+Epoch [17/50], Step [2/8], Loss: 3.5973, Perplexity: 36.5010
+Epoch [17/50], Step [4/8], Loss: 3.7720, Perplexity: 43.4676
+Epoch [17/50], Step [6/8], Loss: 3.5517, Perplexity: 34.8722
+Epoch [17/50], Step [8/8], Loss: 3.7504, Perplexity: 42.5366
 Trained 1024 samples
-Avg Train Loss: 3.7565
-Train time Usage: 0:00:05.934254
+Avg Train Loss: 3.6877
+Train time Usage: 0:00:07.218156
 Evaluated 256 samples
-Avg Eval Loss: 5.1692
-Eval time Usage: 0:00:02.339727
+Avg Eval Loss: 5.2434
+Eval time Usage: 0:00:02.311056
 ====================================================================
-Epoch [18/50], Step [0/3236], Loss: 3.6282, Perplexity: 37.6462
+Epoch [18/50], Step [0/8], Loss: 3.7602, Perplexity: 42.9557
+Epoch [18/50], Step [2/8], Loss: 3.6372, Perplexity: 37.9842
+Epoch [18/50], Step [4/8], Loss: 3.6638, Perplexity: 39.0108
+Epoch [18/50], Step [6/8], Loss: 3.7048, Perplexity: 40.6421
+Epoch [18/50], Step [8/8], Loss: 3.5855, Perplexity: 36.0714
 Trained 1024 samples
-Avg Train Loss: 3.7045
-Train time Usage: 0:00:05.901128
+Avg Train Loss: 3.6748
+Train time Usage: 0:00:06.882631
 Evaluated 256 samples
-Avg Eval Loss: 5.3001
-Eval time Usage: 0:00:02.365745
+Avg Eval Loss: 5.2287
+Eval time Usage: 0:00:02.353680
 ====================================================================
-Epoch [19/50], Step [0/3236], Loss: 3.7742, Perplexity: 43.5615
+Epoch [19/50], Step [0/8], Loss: 3.7347, Perplexity: 41.8743
+Epoch [19/50], Step [2/8], Loss: 3.6735, Perplexity: 39.3885
+Epoch [19/50], Step [4/8], Loss: 3.5721, Perplexity: 35.5910
+Epoch [19/50], Step [6/8], Loss: 3.6016, Perplexity: 36.6568
+Epoch [19/50], Step [8/8], Loss: 3.6844, Perplexity: 39.8223
 Trained 1024 samples
-Avg Train Loss: 3.6922
-Train time Usage: 0:00:05.717539
+Avg Train Loss: 3.6432
+Train time Usage: 0:00:07.089330
 Evaluated 256 samples
-Avg Eval Loss: 5.4242
-Eval time Usage: 0:00:02.361525
+Avg Eval Loss: 5.2730
+Eval time Usage: 0:00:02.341500
 ====================================================================
-Epoch [20/50], Step [0/3236], Loss: 3.6523, Perplexity: 38.5626
+Epoch [20/50], Step [0/8], Loss: 3.7602, Perplexity: 42.9581
+Epoch [20/50], Step [2/8], Loss: 3.6909, Perplexity: 40.0813
+Epoch [20/50], Step [4/8], Loss: 3.5687, Perplexity: 35.4712
+Epoch [20/50], Step [6/8], Loss: 3.6152, Perplexity: 37.1579
+Epoch [20/50], Step [8/8], Loss: 3.6270, Perplexity: 37.5998
 Trained 1024 samples
-Avg Train Loss: 3.6230
-Train time Usage: 0:00:05.821837
+Avg Train Loss: 3.6386
+Train time Usage: 0:00:06.884809
 Evaluated 256 samples
-Avg Eval Loss: 5.4577
-Eval time Usage: 0:00:02.275694
+Avg Eval Loss: 5.3796
+Eval time Usage: 0:00:02.287640
 ====================================================================
-Epoch [21/50], Step [0/3236], Loss: 3.6366, Perplexity: 37.9633
+Epoch [21/50], Step [0/8], Loss: 3.6337, Perplexity: 37.8528
+Epoch [21/50], Step [2/8], Loss: 3.4897, Perplexity: 32.7777
+Epoch [21/50], Step [4/8], Loss: 3.4923, Perplexity: 32.8612
+Epoch [21/50], Step [6/8], Loss: 3.6528, Perplexity: 38.5833
+Epoch [21/50], Step [8/8], Loss: 3.4991, Perplexity: 33.0862
 Trained 1024 samples
-Avg Train Loss: 3.6106
-Train time Usage: 0:00:06.031374
+Avg Train Loss: 3.5808
+Train time Usage: 0:00:06.986136
 Evaluated 256 samples
-Avg Eval Loss: 5.4550
-Eval time Usage: 0:00:02.321801
+Avg Eval Loss: 5.4819
+Eval time Usage: 0:00:02.650305
 ====================================================================
-Epoch [22/50], Step [0/3236], Loss: 3.7486, Perplexity: 42.4598
+Epoch [22/50], Step [0/8], Loss: 3.5444, Perplexity: 34.6204
+Epoch [22/50], Step [2/8], Loss: 3.6176, Perplexity: 37.2463
+Epoch [22/50], Step [4/8], Loss: 3.4688, Perplexity: 32.0971
+Epoch [22/50], Step [6/8], Loss: 3.3900, Perplexity: 29.6666
+Epoch [22/50], Step [8/8], Loss: 3.4353, Perplexity: 31.0398
 Trained 1024 samples
-Avg Train Loss: 3.5871
-Train time Usage: 0:00:05.974685
+Avg Train Loss: 3.5011
+Train time Usage: 0:00:06.898982
 Evaluated 256 samples
-Avg Eval Loss: 5.5049
-Eval time Usage: 0:00:02.373089
+Avg Eval Loss: 5.4534
+Eval time Usage: 0:00:02.360604
 ====================================================================
-Epoch [23/50], Step [0/3236], Loss: 3.5846, Perplexity: 36.0377
+Epoch [23/50], Step [0/8], Loss: 3.4415, Perplexity: 31.2344
+Epoch [23/50], Step [2/8], Loss: 3.5650, Perplexity: 35.3394
+Epoch [23/50], Step [4/8], Loss: 3.7431, Perplexity: 42.2268
+Epoch [23/50], Step [6/8], Loss: 3.4728, Perplexity: 32.2277
+Epoch [23/50], Step [8/8], Loss: 3.4952, Perplexity: 32.9562
 Trained 1024 samples
-Avg Train Loss: 3.5268
-Train time Usage: 0:00:06.101593
+Avg Train Loss: 3.5391
+Train time Usage: 0:00:06.902602
 Evaluated 256 samples
-Avg Eval Loss: 5.5233
-Eval time Usage: 0:00:02.324344
+Avg Eval Loss: 5.4498
+Eval time Usage: 0:00:02.285635
 ====================================================================
-Epoch [24/50], Step [0/3236], Loss: 3.5228, Perplexity: 33.8789
+Epoch [24/50], Step [0/8], Loss: 3.4370, Perplexity: 31.0947
+Epoch [24/50], Step [2/8], Loss: 3.6134, Perplexity: 37.0926
+Epoch [24/50], Step [4/8], Loss: 3.5093, Perplexity: 33.4238
+Epoch [24/50], Step [6/8], Loss: 3.3476, Perplexity: 28.4344
+Epoch [24/50], Step [8/8], Loss: 3.4991, Perplexity: 33.0866
 Trained 1024 samples
-Avg Train Loss: 3.5462
-Train time Usage: 0:00:05.886683
+Avg Train Loss: 3.4607
+Train time Usage: 0:00:06.859585
 Evaluated 256 samples
-Avg Eval Loss: 5.5507
-Eval time Usage: 0:00:02.363808
+Avg Eval Loss: 5.6065
+Eval time Usage: 0:00:02.373067
 ====================================================================
-Epoch [25/50], Step [0/3236], Loss: 3.4694, Perplexity: 32.1161
+Epoch [25/50], Step [0/8], Loss: 3.4477, Perplexity: 31.4288
+Epoch [25/50], Step [2/8], Loss: 3.4118, Perplexity: 30.3200
+Epoch [25/50], Step [4/8], Loss: 3.3929, Perplexity: 29.7533
+Epoch [25/50], Step [6/8], Loss: 3.4152, Perplexity: 30.4236
+Epoch [25/50], Step [8/8], Loss: 3.3664, Perplexity: 28.9755
 Trained 1024 samples
-Avg Train Loss: 3.4878
-Train time Usage: 0:00:06.037669
+Avg Train Loss: 3.4050
+Train time Usage: 0:00:06.850805
 Evaluated 256 samples
-Avg Eval Loss: 5.6039
-Eval time Usage: 0:00:02.329679
+Avg Eval Loss: 5.5874
+Eval time Usage: 0:00:02.471670
 ====================================================================
-Epoch [26/50], Step [0/3236], Loss: 3.4861, Perplexity: 32.6581
+Epoch [26/50], Step [0/8], Loss: 3.4588, Perplexity: 31.7786
+Epoch [26/50], Step [2/8], Loss: 3.3536, Perplexity: 28.6054
+Epoch [26/50], Step [4/8], Loss: 3.4166, Perplexity: 30.4644
+Epoch [26/50], Step [6/8], Loss: 3.3660, Perplexity: 28.9638
+Epoch [26/50], Step [8/8], Loss: 3.3617, Perplexity: 28.8380
 Trained 1024 samples
-Avg Train Loss: 3.4646
-Train time Usage: 0:00:06.058944
+Avg Train Loss: 3.3944
+Train time Usage: 0:00:06.792946
 Evaluated 256 samples
-Avg Eval Loss: 5.6130
-Eval time Usage: 0:00:02.373304
+Avg Eval Loss: 5.5417
+Eval time Usage: 0:00:02.335949
 ====================================================================
-Epoch [27/50], Step [0/3236], Loss: 3.5549, Perplexity: 34.9827
+Epoch [27/50], Step [0/8], Loss: 3.3266, Perplexity: 27.8428
+Epoch [27/50], Step [2/8], Loss: 3.3419, Perplexity: 28.2729
+Epoch [27/50], Step [4/8], Loss: 3.4618, Perplexity: 31.8739
+Epoch [27/50], Step [6/8], Loss: 3.3170, Perplexity: 27.5778
+Epoch [27/50], Step [8/8], Loss: 3.4542, Perplexity: 31.6333
 Trained 1024 samples
-Avg Train Loss: 3.4635
-Train time Usage: 0:00:06.014999
+Avg Train Loss: 3.3903
+Train time Usage: 0:00:07.072884
 Evaluated 256 samples
-Avg Eval Loss: 5.6314
-Eval time Usage: 0:00:02.318378
+Avg Eval Loss: 5.5571
+Eval time Usage: 0:00:02.305289
 ====================================================================
-Epoch [28/50], Step [0/3236], Loss: 3.5041, Perplexity: 33.2501
+Epoch [28/50], Step [0/8], Loss: 3.3898, Perplexity: 29.6610
+Epoch [28/50], Step [2/8], Loss: 3.3014, Perplexity: 27.1517
+Epoch [28/50], Step [4/8], Loss: 3.4863, Perplexity: 32.6660
+Epoch [28/50], Step [6/8], Loss: 3.3192, Perplexity: 27.6384
+Epoch [28/50], Step [8/8], Loss: 3.3671, Perplexity: 28.9932
 Trained 1024 samples
-Avg Train Loss: 3.4219
-Train time Usage: 0:00:06.052823
+Avg Train Loss: 3.3469
+Train time Usage: 0:00:06.813455
 Evaluated 256 samples
-Avg Eval Loss: 5.6822
-Eval time Usage: 0:00:02.322973
+Avg Eval Loss: 5.6141
+Eval time Usage: 0:00:02.363892
 ====================================================================
-Epoch [29/50], Step [0/3236], Loss: 3.5407, Perplexity: 34.4908
+Epoch [29/50], Step [0/8], Loss: 3.3177, Perplexity: 27.5976
+Epoch [29/50], Step [2/8], Loss: 3.3781, Perplexity: 29.3148
+Epoch [29/50], Step [4/8], Loss: 3.3680, Perplexity: 29.0200
+Epoch [29/50], Step [6/8], Loss: 3.4834, Perplexity: 32.5688
+Epoch [29/50], Step [8/8], Loss: 3.2503, Perplexity: 25.7975
 Trained 1024 samples
-Avg Train Loss: 3.4596
-Train time Usage: 0:00:06.097022
+Avg Train Loss: 3.3740
+Train time Usage: 0:00:07.273304
 Evaluated 256 samples
-Avg Eval Loss: 5.7072
-Eval time Usage: 0:00:02.292003
+Avg Eval Loss: 5.6262
+Eval time Usage: 0:00:02.349908
 ====================================================================
-Epoch [30/50], Step [0/3236], Loss: 3.6362, Perplexity: 37.9479
+Epoch [30/50], Step [0/8], Loss: 3.3488, Perplexity: 28.4678
+Epoch [30/50], Step [2/8], Loss: 3.3560, Perplexity: 28.6752
+Epoch [30/50], Step [4/8], Loss: 3.3889, Perplexity: 29.6340
+Epoch [30/50], Step [6/8], Loss: 3.2536, Perplexity: 25.8822
+Epoch [30/50], Step [8/8], Loss: 3.3916, Perplexity: 29.7129
 Trained 1024 samples
-Avg Train Loss: 3.4266
-Train time Usage: 0:00:05.721634
+Avg Train Loss: 3.3392
+Train time Usage: 0:00:06.779203
 Evaluated 256 samples
-Avg Eval Loss: 5.6862
-Eval time Usage: 0:00:02.374310
+Avg Eval Loss: 5.5678
+Eval time Usage: 0:00:02.318916
 ====================================================================
-Epoch [31/50], Step [0/3236], Loss: 3.5263, Perplexity: 33.9996
+Epoch [31/50], Step [0/8], Loss: 3.3298, Perplexity: 27.9332
+Epoch [31/50], Step [2/8], Loss: 3.2470, Perplexity: 25.7128
+Epoch [31/50], Step [4/8], Loss: 3.1691, Perplexity: 23.7852
+Epoch [31/50], Step [6/8], Loss: 3.3567, Perplexity: 28.6949
+Epoch [31/50], Step [8/8], Loss: 3.3569, Perplexity: 28.6993
 Trained 1024 samples
-Avg Train Loss: 3.4145
-Train time Usage: 0:00:05.825685
+Avg Train Loss: 3.2812
+Train time Usage: 0:00:06.791877
 Evaluated 256 samples
-Avg Eval Loss: 5.7225
-Eval time Usage: 0:00:02.341548
+Avg Eval Loss: 5.6767
+Eval time Usage: 0:00:02.273307
 ====================================================================
-Epoch [32/50], Step [0/3236], Loss: 3.5161, Perplexity: 33.6540
+Epoch [32/50], Step [0/8], Loss: 3.3156, Perplexity: 27.5384
+Epoch [32/50], Step [2/8], Loss: 3.3373, Perplexity: 28.1430
+Epoch [32/50], Step [4/8], Loss: 3.3815, Perplexity: 29.4163
+Epoch [32/50], Step [6/8], Loss: 3.3906, Perplexity: 29.6830
+Epoch [32/50], Step [8/8], Loss: 3.2215, Perplexity: 25.0661
 Trained 1024 samples
-Avg Train Loss: 3.4451
-Train time Usage: 0:00:05.976905
+Avg Train Loss: 3.3186
+Train time Usage: 0:00:06.850167
 Evaluated 256 samples
-Avg Eval Loss: 5.6870
-Eval time Usage: 0:00:02.324666
+Avg Eval Loss: 5.6281
+Eval time Usage: 0:00:02.260193
 ====================================================================
-Epoch [33/50], Step [0/3236], Loss: 3.3914, Perplexity: 29.7064
+Epoch [33/50], Step [0/8], Loss: 3.3079, Perplexity: 27.3277
+Epoch [33/50], Step [2/8], Loss: 3.3284, Perplexity: 27.8948
+Epoch [33/50], Step [4/8], Loss: 3.1793, Perplexity: 24.0299
+Epoch [33/50], Step [6/8], Loss: 3.2874, Perplexity: 26.7729
+Epoch [33/50], Step [8/8], Loss: 3.4012, Perplexity: 29.9987
 Trained 1024 samples
-Avg Train Loss: 3.3280
-Train time Usage: 0:00:06.072311
+Avg Train Loss: 3.2781
+Train time Usage: 0:00:07.484541
 Evaluated 256 samples
-Avg Eval Loss: 5.6704
-Eval time Usage: 0:00:02.324524
+Avg Eval Loss: 5.6215
+Eval time Usage: 0:00:02.364281
 ====================================================================
-Epoch [34/50], Step [0/3236], Loss: 3.2780, Perplexity: 26.5228
+Epoch [34/50], Step [0/8], Loss: 3.3691, Perplexity: 29.0523
+Epoch [34/50], Step [2/8], Loss: 3.2820, Perplexity: 26.6296
+Epoch [34/50], Step [4/8], Loss: 3.2959, Perplexity: 27.0018
+Epoch [34/50], Step [6/8], Loss: 3.2959, Perplexity: 27.0012
+Epoch [34/50], Step [8/8], Loss: 3.2205, Perplexity: 25.0404
 Trained 1024 samples
-Avg Train Loss: 3.3726
-Train time Usage: 0:00:05.827570
+Avg Train Loss: 3.2733
+Train time Usage: 0:00:06.874795
 Evaluated 256 samples
-Avg Eval Loss: 5.6532
-Eval time Usage: 0:00:02.385587
+Avg Eval Loss: 5.6515
+Eval time Usage: 0:00:02.314351
 ====================================================================
-Epoch [35/50], Step [0/3236], Loss: 3.3533, Perplexity: 28.5975
+Epoch [35/50], Step [0/8], Loss: 3.3081, Perplexity: 27.3323
+Epoch [35/50], Step [2/8], Loss: 3.2296, Perplexity: 25.2703
+Epoch [35/50], Step [4/8], Loss: 3.2401, Perplexity: 25.5361
+Epoch [35/50], Step [6/8], Loss: 3.2535, Perplexity: 25.8796
+Epoch [35/50], Step [8/8], Loss: 3.2353, Perplexity: 25.4150
 Trained 1024 samples
-Avg Train Loss: 3.3151
-Train time Usage: 0:00:05.848948
+Avg Train Loss: 3.2287
+Train time Usage: 0:00:07.113370
 Evaluated 256 samples
-Avg Eval Loss: 5.7752
-Eval time Usage: 0:00:02.355577
+Avg Eval Loss: 5.6647
+Eval time Usage: 0:00:02.334328
 ====================================================================
-Epoch [36/50], Step [0/3236], Loss: 3.3528, Perplexity: 28.5838
+Epoch [36/50], Step [0/8], Loss: 3.2526, Perplexity: 25.8579
+Epoch [36/50], Step [2/8], Loss: 3.0990, Perplexity: 22.1763
+Epoch [36/50], Step [4/8], Loss: 3.2670, Perplexity: 26.2313
+Epoch [36/50], Step [6/8], Loss: 3.2320, Perplexity: 25.3302
+Epoch [36/50], Step [8/8], Loss: 3.2719, Perplexity: 26.3612
 Trained 1024 samples
-Avg Train Loss: 3.3109
-Train time Usage: 0:00:05.838047
+Avg Train Loss: 3.1872
+Train time Usage: 0:00:07.105869
 Evaluated 256 samples
-Avg Eval Loss: 5.6982
-Eval time Usage: 0:00:02.343078
+Avg Eval Loss: 5.6499
+Eval time Usage: 0:00:02.301207
 ====================================================================
-Epoch [37/50], Step [0/3236], Loss: 3.4185, Perplexity: 30.5246
+Epoch [37/50], Step [0/8], Loss: 3.1891, Perplexity: 24.2675
+Epoch [37/50], Step [2/8], Loss: 3.2239, Perplexity: 25.1254
+Epoch [37/50], Step [4/8], Loss: 3.2649, Perplexity: 26.1772
+Epoch [37/50], Step [6/8], Loss: 3.0965, Perplexity: 22.1212
+Epoch [37/50], Step [8/8], Loss: 3.2322, Perplexity: 25.3347
 Trained 1024 samples
-Avg Train Loss: 3.3086
-Train time Usage: 0:00:06.092593
+Avg Train Loss: 3.2364
+Train time Usage: 0:00:06.647083
 Evaluated 256 samples
-Avg Eval Loss: 5.6940
-Eval time Usage: 0:00:02.325352
+Avg Eval Loss: 5.6199
+Eval time Usage: 0:00:02.607593
 ====================================================================
-Epoch [38/50], Step [0/3236], Loss: 3.2174, Perplexity: 24.9623
+Epoch [38/50], Step [0/8], Loss: 3.2696, Perplexity: 26.3014
+Epoch [38/50], Step [2/8], Loss: 3.2170, Perplexity: 24.9544
+Epoch [38/50], Step [4/8], Loss: 3.2502, Perplexity: 25.7958
+Epoch [38/50], Step [6/8], Loss: 3.3949, Perplexity: 29.8131
+Epoch [38/50], Step [8/8], Loss: 3.0822, Perplexity: 21.8058
 Trained 1024 samples
-Avg Train Loss: 3.2680
-Train time Usage: 0:00:05.985139
+Avg Train Loss: 3.2120
+Train time Usage: 0:00:06.928402
 Evaluated 256 samples
-Avg Eval Loss: 5.7632
-Eval time Usage: 0:00:02.365184
+Avg Eval Loss: 5.6614
+Eval time Usage: 0:00:02.380553
 ====================================================================
-Epoch [39/50], Step [0/3236], Loss: 3.3064, Perplexity: 27.2875
+Epoch [39/50], Step [0/8], Loss: 3.0844, Perplexity: 21.8548
+Epoch [39/50], Step [2/8], Loss: 3.2676, Perplexity: 26.2472
+Epoch [39/50], Step [4/8], Loss: 3.1903, Perplexity: 24.2966
+Epoch [39/50], Step [6/8], Loss: 3.1877, Perplexity: 24.2330
+Epoch [39/50], Step [8/8], Loss: 3.2191, Perplexity: 25.0067
 Trained 1024 samples
-Avg Train Loss: 3.3274
-Train time Usage: 0:00:05.923700
+Avg Train Loss: 3.2234
+Train time Usage: 0:00:06.909553
 Evaluated 256 samples
-Avg Eval Loss: 5.6599
-Eval time Usage: 0:00:02.276477
+Avg Eval Loss: 5.6597
+Eval time Usage: 0:00:02.260703
 ====================================================================
-Epoch [40/50], Step [0/3236], Loss: 3.1498, Perplexity: 23.3319
+Epoch [40/50], Step [0/8], Loss: 3.1427, Perplexity: 23.1667
+Epoch [40/50], Step [2/8], Loss: 3.2016, Perplexity: 24.5725
+Epoch [40/50], Step [4/8], Loss: 3.1965, Perplexity: 24.4462
+Epoch [40/50], Step [6/8], Loss: 3.2356, Perplexity: 25.4212
+Epoch [40/50], Step [8/8], Loss: 3.1780, Perplexity: 23.9991
 Trained 1024 samples
-Avg Train Loss: 3.1965
-Train time Usage: 0:00:05.921343
+Avg Train Loss: 3.2011
+Train time Usage: 0:00:07.101326
 Evaluated 256 samples
-Avg Eval Loss: 5.8521
-Eval time Usage: 0:00:02.318550
+Avg Eval Loss: 5.7603
+Eval time Usage: 0:00:02.223570
 ====================================================================
-Epoch [41/50], Step [0/3236], Loss: 3.2262, Perplexity: 25.1843
+Epoch [41/50], Step [0/8], Loss: 3.0962, Perplexity: 22.1145
+Epoch [41/50], Step [2/8], Loss: 3.2890, Perplexity: 26.8152
+Epoch [41/50], Step [4/8], Loss: 2.9921, Perplexity: 19.9283
+Epoch [41/50], Step [6/8], Loss: 3.1382, Perplexity: 23.0617
+Epoch [41/50], Step [8/8], Loss: 3.1205, Perplexity: 22.6581
 Trained 1024 samples
-Avg Train Loss: 3.1933
-Train time Usage: 0:00:06.053425
+Avg Train Loss: 3.1482
+Train time Usage: 0:00:06.777748
 Evaluated 256 samples
-Avg Eval Loss: 5.7433
-Eval time Usage: 0:00:02.300728
+Avg Eval Loss: 5.6762
+Eval time Usage: 0:00:02.279344
 ====================================================================
-Epoch [42/50], Step [0/3236], Loss: 3.2744, Perplexity: 26.4274
+Epoch [42/50], Step [0/8], Loss: 3.0620, Perplexity: 21.3700
+Epoch [42/50], Step [2/8], Loss: 3.2361, Perplexity: 25.4354
+Epoch [42/50], Step [4/8], Loss: 3.1609, Perplexity: 23.5928
+Epoch [42/50], Step [6/8], Loss: 3.2116, Perplexity: 24.8184
+Epoch [42/50], Step [8/8], Loss: 2.9959, Perplexity: 20.0034
 Trained 1024 samples
-Avg Train Loss: 3.2007
-Train time Usage: 0:00:05.890626
+Avg Train Loss: 3.1398
+Train time Usage: 0:00:06.885777
 Evaluated 256 samples
-Avg Eval Loss: 5.7805
-Eval time Usage: 0:00:02.365048
+Avg Eval Loss: 5.7246
+Eval time Usage: 0:00:02.289285
 ====================================================================
-Epoch [43/50], Step [0/3236], Loss: 3.0361, Perplexity: 20.8240
+Epoch [43/50], Step [0/8], Loss: 3.0502, Perplexity: 21.1206
+Epoch [43/50], Step [2/8], Loss: 3.1645, Perplexity: 23.6761
+Epoch [43/50], Step [4/8], Loss: 3.1009, Perplexity: 22.2176
+Epoch [43/50], Step [6/8], Loss: 3.1403, Perplexity: 23.1103
+Epoch [43/50], Step [8/8], Loss: 3.1079, Perplexity: 22.3747
 Trained 1024 samples
-Avg Train Loss: 3.2292
-Train time Usage: 0:00:06.031288
+Avg Train Loss: 3.1160
+Train time Usage: 0:00:06.886621
 Evaluated 256 samples
-Avg Eval Loss: 5.7498
-Eval time Usage: 0:00:02.320377
+Avg Eval Loss: 5.7455
+Eval time Usage: 0:00:04.278344
 ====================================================================
-Epoch [44/50], Step [0/3236], Loss: 3.3767, Perplexity: 29.2727
+Epoch [44/50], Step [0/8], Loss: 3.0485, Perplexity: 21.0837
+Epoch [44/50], Step [2/8], Loss: 3.0301, Perplexity: 20.7002
+Epoch [44/50], Step [4/8], Loss: 3.1661, Perplexity: 23.7157
+Epoch [44/50], Step [6/8], Loss: 3.3319, Perplexity: 27.9928
+Epoch [44/50], Step [8/8], Loss: 3.2428, Perplexity: 25.6050
 Trained 1024 samples
-Avg Train Loss: 3.2008
-Train time Usage: 0:00:05.876014
+Avg Train Loss: 3.1873
+Train time Usage: 0:00:07.006295
 Evaluated 256 samples
-Avg Eval Loss: 5.8169
-Eval time Usage: 0:00:02.287460
+Avg Eval Loss: 5.7206
+Eval time Usage: 0:00:02.314949
 ====================================================================
-Epoch [45/50], Step [0/3236], Loss: 3.1945, Perplexity: 24.3983
+Epoch [45/50], Step [0/8], Loss: 3.1457, Perplexity: 23.2363
+Epoch [45/50], Step [2/8], Loss: 3.1047, Perplexity: 22.3033
+Epoch [45/50], Step [4/8], Loss: 3.0604, Perplexity: 21.3362
+Epoch [45/50], Step [6/8], Loss: 3.2290, Perplexity: 25.2538
+Epoch [45/50], Step [8/8], Loss: 3.0957, Perplexity: 22.1027
 Trained 1024 samples
-Avg Train Loss: 3.2080
-Train time Usage: 0:00:05.926979
+Avg Train Loss: 3.1347
+Train time Usage: 0:00:06.816080
 Evaluated 256 samples
-Avg Eval Loss: 5.7169
-Eval time Usage: 0:00:02.316356
+Avg Eval Loss: 5.7696
+Eval time Usage: 0:00:02.392373
 ====================================================================
-Epoch [46/50], Step [0/3236], Loss: 3.0245, Perplexity: 20.5830
+Epoch [46/50], Step [0/8], Loss: 2.9673, Perplexity: 19.4385
+Epoch [46/50], Step [2/8], Loss: 3.2161, Perplexity: 24.9316
+Epoch [46/50], Step [4/8], Loss: 2.8894, Perplexity: 17.9823
+Epoch [46/50], Step [6/8], Loss: 2.9772, Perplexity: 19.6324
+Epoch [46/50], Step [8/8], Loss: 3.1302, Perplexity: 22.8791
 Trained 1024 samples
-Avg Train Loss: 3.1374
-Train time Usage: 0:00:05.732392
+Avg Train Loss: 3.0639
+Train time Usage: 0:00:06.887727
 Evaluated 256 samples
-Avg Eval Loss: 5.7237
-Eval time Usage: 0:00:02.250009
+Avg Eval Loss: 5.7413
+Eval time Usage: 0:00:02.347919
 ====================================================================
-Epoch [47/50], Step [0/3236], Loss: 3.0834, Perplexity: 21.8316
+Epoch [47/50], Step [0/8], Loss: 3.1482, Perplexity: 23.2937
+Epoch [47/50], Step [2/8], Loss: 3.2257, Perplexity: 25.1704
+Epoch [47/50], Step [4/8], Loss: 2.9354, Perplexity: 18.8289
+Epoch [47/50], Step [6/8], Loss: 3.1361, Perplexity: 23.0145
+Epoch [47/50], Step [8/8], Loss: 3.1944, Perplexity: 24.3955
 Trained 1024 samples
 Avg Train Loss: 3.1336
-Train time Usage: 0:00:05.895418
+Train time Usage: 0:00:06.719845
 Evaluated 256 samples
-Avg Eval Loss: 5.7519
-Eval time Usage: 0:00:02.361766
+Avg Eval Loss: 5.7753
+Eval time Usage: 0:00:02.333263
 ====================================================================
-Epoch [48/50], Step [0/3236], Loss: 3.1624, Perplexity: 23.6267
+Epoch [48/50], Step [0/8], Loss: 3.0702, Perplexity: 21.5458
+Epoch [48/50], Step [2/8], Loss: 2.9412, Perplexity: 18.9380
+Epoch [48/50], Step [4/8], Loss: 3.0615, Perplexity: 21.3595
+Epoch [48/50], Step [6/8], Loss: 2.9092, Perplexity: 18.3424
+Epoch [48/50], Step [8/8], Loss: 3.0018, Perplexity: 20.1225
 Trained 1024 samples
-Avg Train Loss: 3.1455
-Train time Usage: 0:00:06.010270
+Avg Train Loss: 3.0152
+Train time Usage: 0:00:06.968085
 Evaluated 256 samples
-Avg Eval Loss: 5.7357
-Eval time Usage: 0:00:02.430880
+Avg Eval Loss: 5.8412
+Eval time Usage: 0:00:02.212799
 ====================================================================
-Epoch [49/50], Step [0/3236], Loss: 3.0363, Perplexity: 20.8282
+Epoch [49/50], Step [0/8], Loss: 2.9857, Perplexity: 19.8011
+Epoch [49/50], Step [2/8], Loss: 3.0601, Perplexity: 21.3302
+Epoch [49/50], Step [4/8], Loss: 2.9962, Perplexity: 20.0086
+Epoch [49/50], Step [6/8], Loss: 2.9248, Perplexity: 18.6305
+Epoch [49/50], Step [8/8], Loss: 3.0055, Perplexity: 20.1962
 Trained 1024 samples
-Avg Train Loss: 3.1260
-Train time Usage: 0:00:05.783942
+Avg Train Loss: 3.0175
+Train time Usage: 0:00:07.122606
 Evaluated 256 samples
-Avg Eval Loss: 5.7612
-Eval time Usage: 0:00:02.355183
-[End Time] 2018-04-24 23:04:35.731037
+Avg Eval Loss: 5.8252
+Eval time Usage: 0:00:02.306034
+[End Time] 2018-04-25 13:08:57.912931
