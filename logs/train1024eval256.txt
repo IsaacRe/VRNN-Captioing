@@ -1,0 +1,84 @@
+Namespace(batch_size=128, caption_path='./data/annotations/captions_train2014.json', crop_size=224, embed_size=256, hidden_size=512, image_dir='./data/resized2014', learning_rate=0.001, log_path='logs/train1024eval256.txt', log_step=10, model_path='./models/', num_epochs=10, num_eval_samples=256, num_hints=-1, num_layers=1, num_train_samples=1024, num_workers=2, save_step=1000, vocab_path='./data/vocab.pkl')
+We are using the number of hints = -1
+[Start Time] 2018-04-24 22:43:43.031715
+====================================================================
+Epoch [0/10], Step [0/3236], Loss: 9.2054, Perplexity: 9950.2483
+Trained 1024 samples
+Avg Train Loss: 8.6585
+Train time Usage: 0:00:05.558073
+Evaluated 256 samples
+Avg Eval Loss: 7.0295
+Eval time Usage: 0:00:02.484734
+====================================================================
+Epoch [1/10], Step [0/3236], Loss: 6.9517, Perplexity: 1044.9298
+Trained 1024 samples
+Avg Train Loss: 6.3124
+Train time Usage: 0:00:05.400904
+Evaluated 256 samples
+Avg Eval Loss: 5.9180
+Eval time Usage: 0:00:02.137535
+====================================================================
+Epoch [2/10], Step [0/3236], Loss: 5.7780, Perplexity: 323.1221
+Trained 1024 samples
+Avg Train Loss: 5.5952
+Train time Usage: 0:00:05.424958
+Evaluated 256 samples
+Avg Eval Loss: 5.3481
+Eval time Usage: 0:00:02.141790
+====================================================================
+Epoch [3/10], Step [0/3236], Loss: 5.2040, Perplexity: 181.9934
+Trained 1024 samples
+Avg Train Loss: 5.0695
+Train time Usage: 0:00:05.444213
+Evaluated 256 samples
+Avg Eval Loss: 5.0060
+Eval time Usage: 0:00:02.199875
+====================================================================
+Epoch [4/10], Step [0/3236], Loss: 4.9030, Perplexity: 134.6972
+Trained 1024 samples
+Avg Train Loss: 4.8158
+Train time Usage: 0:00:05.502550
+Evaluated 256 samples
+Avg Eval Loss: 4.8584
+Eval time Usage: 0:00:02.190625
+====================================================================
+Epoch [5/10], Step [0/3236], Loss: 4.7902, Perplexity: 120.3275
+Trained 1024 samples
+Avg Train Loss: 4.6575
+Train time Usage: 0:00:05.512542
+Evaluated 256 samples
+Avg Eval Loss: 4.8167
+Eval time Usage: 0:00:02.223180
+====================================================================
+Epoch [6/10], Step [0/3236], Loss: 4.5877, Perplexity: 98.2641
+Trained 1024 samples
+Avg Train Loss: 4.4935
+Train time Usage: 0:00:05.550690
+Evaluated 256 samples
+Avg Eval Loss: 4.7827
+Eval time Usage: 0:00:02.206122
+====================================================================
+Epoch [7/10], Step [0/3236], Loss: 4.4661, Perplexity: 87.0148
+Trained 1024 samples
+Avg Train Loss: 4.4143
+Train time Usage: 0:00:05.487200
+Evaluated 256 samples
+Avg Eval Loss: 4.8069
+Eval time Usage: 0:00:02.156047
+====================================================================
+Epoch [8/10], Step [0/3236], Loss: 4.4145, Perplexity: 82.6428
+Trained 1024 samples
+Avg Train Loss: 4.3482
+Train time Usage: 0:00:05.545512
+Evaluated 256 samples
+Avg Eval Loss: 4.8915
+Eval time Usage: 0:00:02.388817
+====================================================================
+Epoch [9/10], Step [0/3236], Loss: 4.2348, Perplexity: 69.0491
+Trained 1024 samples
+Avg Train Loss: 4.2650
+Train time Usage: 0:00:05.800153
+Evaluated 256 samples
+Avg Eval Loss: 4.9736
+Eval time Usage: 0:00:02.316729
+[End Time] 2018-04-24 22:45:00.704451
