@@ -291,7 +291,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
        transforms.Normalize((0.485, 0.456, 0.406), 
                             (0.229, 0.224, 0.225))])
     rt_image = './data/val_resized2014'
-    annotations = './data/annotations/captions_val2014.json' 
+    annotations = args.caption or './data/annotations/captions_val2014.json' 
     shuffle = False
     data_loader = get_loader(rt_image,
                   annotations,
@@ -416,6 +416,7 @@ if __name__ == '__main__':
     parser.add_argument('--decoder', type=str , default = './models/decoder_pretrained.pkl',
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
+    parser.add_argument('--caption', type=str , default = './data/annotations/captions_val2014.json')
     parser.add_argument('--num_samples', type=int , default=2000)
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
