@@ -1,4 +1,6 @@
+.*
 /data
+hint_improvement.pkl
 /course.db-journal
 /models
 /static/*

@@ -115,44 +115,24 @@ def main(args):
     user_input = raw_input("Does it make sense to you?(y/n)\n")
 
     if str(user_input) == "n":
-        user_input = raw_input("Do you want only next word?(y/n)\n")
         f = open('data/step_1/caption_'+args.image+'.txt','r')
         ground_true = f.read().lower()
-        if str(user_input) ==  "n":
-            teach_wordid = []
-            teach_wordid.append(vocab.word2idx["<start>"])
-            while(True):
-                print "This is the ground true:\n"+ground_true+"\n"+\
-                "###################################################\n"
-                reference = ground_true.split()
-                hypothesis = sentence.split()
-                BLEUscore = nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
-                print "Current BLEU score is "+str(BLEUscore)
-                word = raw_input("next word:\n")
-                if word.lower() not in vocab.word2idx:
-                    print "Word is not in the vocabulary, please try another one!"
-                    continue
-                word_idx = vocab.word2idx[word.lower()]
-                teach_wordid.append(word_idx)
-                sentence = decode(feature,teach_wordid,decoder,vocab, c_step=args.c_step,prop_step=args.prop_step)
-                print "###################################################\n"
-                print "Current Translated sentence is: \n"+sentence+"\n"
-        elif str(user_input) ==  "y":
-            ground_true = f.read()
-            teach_wordid = []
-            teach_word = []
-            teach_wordid.append(vocab.word2idx["<start>"])
-            teach_word.append("<start>")
-            while(True):
-                print "###################################################\n"
-                print "This is the ground true:\n"+ground_true+"\n"
-                word = raw_input(str(teach_word)+" + ")
-                teach_word.append(word)
-                word_idx = vocab.word2idx[word]
-                teach_wordid.append(word_idx)
-                next_word = decode_word(feature,teach_wordid,decoder,vocab)
-                print "###################################################\n"
-                print "You can choose from these words: \n"+str(next_word)+"\n"
+        teach_wordid = []
+        teach_wordid.append(vocab.word2idx["<start>"])
+        while(True):
+            print "This is the ground true:\n"+ground_true+"\n"+\
+            "###################################################\n"
+            
+            word = raw_input("next word:\n")
+            if word.lower() not in vocab.word2idx:
+                print "Word is not in the vocabulary, please try another one!"
+                continue
+            word_idx = vocab.word2idx[word.lower()]
+            teach_wordid.append(word_idx)
+            sentence = decode(feature,teach_wordid,decoder,vocab, c_step=args.c_step,prop_step=args.prop_step)
+            print "###################################################\n"
+            print "Current Translated sentence is: \n"+sentence[1]+"\n"
+    
 
 
 
