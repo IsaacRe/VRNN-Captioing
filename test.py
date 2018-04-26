@@ -293,10 +293,11 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     rt_image = './data/val_resized2014'
     annotations = args.caption or './data/annotations/captions_val2014.json' 
     shuffle = False
+    batch_size = 2 if args.adapt else 1 # If inputting random caption as gt, use batch of 2 and swap gts
     data_loader = get_loader(rt_image,
                   annotations,
                   vocab,
-                  transform, 1, shuffle, 1)
+                  transform, batch_size, shuffle, 1)
     assert len(vocab) == decoder.linear.out_features
 
     avg_gt_score, avg_gt_score_hint = torch.zeros(args.compare_steps,1), torch.zeros(args.compare_steps,1)
@@ -310,78 +311,64 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
     coco_json_update = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results_u.json')
 
-    for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
-        if num_sampled > num_samples or i > num_samples and not args.test_c_step:
+    for i, (images, captions, lengths, img_ids, ann_ids) in enumerate(data_loader):
+        if i >= num_samples or args.adapt and i*2 >= num_samples:
             break
 
-        image_tensor = to_var(image, volatile=True)
-        feature = encoder(image_tensor)
+        for k in range(batch_size):
+            image, length, img_id, ann_id = images[k:k+1], lengths[k:k+1], \
+                                            img_ids[k:k+1], ann_ids[k:k+1]
 
-        # Compute optimal c_step by (pred, ce)
-        if args.test_c_step:
-            c_steps = list(np.exp(np.arange(0.1, 4, 0.05))-1)
-            user_input = caption[0,1:-1]
-            update_step = np.random.randint(2,7) if args.update_step == 0 else args.update_step
-
-            p_score, ce_score = decoder.sample_with_update(feature, user_input, vocab, None, c_steps, args.compare_steps, args.update_method, update_step)
-
-            # determine optimal c_step, dependent on p_score/ce_score of predictions at update step
-            if type(p_score) == type(None):
-                continue
-
-            assert p_score.size(0) == len(c_steps) + 1 and p_score.size() == ce_score.size()
-            
-            if p_score.size(1) == args.compare_steps + 1 and ce_score.size(1) == p_score.size(1):
-                num_sampled += 1
-            
-
-            # return [optimal c_steps wrt p_score], p_score of updated step, 
-            #        [optimal c_steps wrt ce_score], ce_score of updated step
-            # (2 * p_score.size(1) data points)
-
-            data_points.append(( [([0.0]+c_steps)[j] for j in p_score.max(0)[1]], p_score[0,0], \
-                                 [([0.0]+c_steps)[j] for j in ce_score.max(0)[1]], ce_score[0,0] ))
-
-        # Compute probability score
-        elif args.msm == "ps":
-            gt_score, gt_score_hint, num_compare = probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
-            if not no_avg:
-                avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
-                avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
+            caption = captions[k:k+1]
+            if args.adapt: # use the other image's caption for gt input
+                gt_input = captions[(k+1) % batch_size, : args.num_hints + 1]
             else:
-                gt_scores.append(gt_score[:num_compare])
-                gt_scores_hint.append(gt_score_hint[:num_compare])
-        # Compute cross entropy loss
-        elif args.msm == 'ce':
-            crossEnloss, crossEnloss_hint, num_compare = crsEntropyLoss(caption,length,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
-            if type(crossEnloss) == type(None):
-                continue
-            if not no_avg:
-                avg_crossEnloss = avg_crossEnloss.index_add_(0, torch.LongTensor(range(num_compare)), crossEnloss)
-                avg_crossEnloss_hint = avg_crossEnloss_hint.index_add_(0, torch.LongTensor(range(num_compare)), crossEnloss_hint)
-            else:
-                crossEnlosses.append(crossEnloss)
-                crossEnlosses_hint.append(crossEnloss_hint)
-        # Evaluate with pycoco tools
-        elif args.msm == "co":
-            no_update, pred_caption, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
-                                          vocab, c_step, args.prop_steps)
-            
-            caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
-            no_update = ' '.join(caption[:num_hints]) + ' ' + ' '.join(no_update.split()[num_hints:])
-            pred_caption = ' '.join(caption[:num_hints]) + ' ' + ' '.join(pred_caption.split()[num_hints:])
-            caption = ' '.join(caption)
+                gt_input = captions[k, : args.num_hints + 1]
 
-            if args.load_val:
-                caption = None
+            image_tensor = to_var(image, volatile=True)
+            feature = encoder(image_tensor)
 
-            coco_json_update.add_entry(img_id[0], ann_id[0], caption, pred_caption)
-            coco_json.add_entry(img_id[0], ann_id[0], caption, no_update)
+            # Compute probability score
+            if args.msm == "ps":
+                gt_score, gt_score_hint, num_compare = probabilityScore(caption,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
+                if not no_avg:
+                    avg_gt_score = avg_gt_score.index_add_(0, torch.LongTensor(range(num_compare)), gt_score)
+                    avg_gt_score_hint = avg_gt_score_hint.index_add_(0, torch.LongTensor(range(num_compare)), gt_score_hint)
+                else:
+                    gt_scores.append(gt_score[:num_compare])
+                    gt_scores_hint.append(gt_score_hint[:num_compare])
+            # Compute cross entropy loss
+            elif args.msm == 'ce':
+                crossEnloss, crossEnloss_hint, num_compare = crsEntropyLoss(caption,length,feature,vocab,num_hints,decoder,c_step,args.compare_steps)
+                if type(crossEnloss) == type(None):
+                    continue
+                if not no_avg:
+                    avg_crossEnloss = avg_crossEnloss.index_add_(0, torch.LongTensor(range(num_compare)), crossEnloss)
+                    avg_crossEnloss_hint = avg_crossEnloss_hint.index_add_(0, torch.LongTensor(range(num_compare)), crossEnloss_hint)
+                else:
+                    crossEnlosses.append(crossEnloss)
+                    crossEnlosses_hint.append(crossEnloss_hint)
+            # Evaluate with pycoco tools
+            elif args.msm == "co":
+                no_update, pred_caption, _ = decode_beta(feature, gt_input, decoder, \
+                                              vocab, c_step, args.prop_steps)
+                
+                caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
+                gt_input = [vocab.idx2word[c] for c in gt_input[:-1]]
+                no_update = ' '.join(gt_input) + ' ' + ' '.join(no_update.split()[num_hints:])
+                pred_caption = ' '.join(gt_input) + ' ' + ' '.join(pred_caption.split()[num_hints:])
+                caption = ' '.join(caption)
 
-        if debug and not args.test_c_step:
-            print("Ground Truth: {}\nNo hint: {}\nHint: {}\
-                  \nGround Truth Score: {}\nGround Truth Score Improve {}\
-                  ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
+                if args.load_val:
+                    caption = None
+
+                coco_json_update.add_entry(img_id[0], ann_id[0], caption, pred_caption)
+                coco_json.add_entry(img_id[0], ann_id[0], caption, no_update)
+
+            if debug and not args.test_c_step:
+                print("Ground Truth: {}\nNo hint: {}\nHint: {}\
+                      \nGround Truth Score: {}\nGround Truth Score Improve {}\
+                      ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
 
     if args.test_c_step:
         return data_points
@@ -433,6 +420,8 @@ if __name__ == '__main__':
     parser.add_argument('--update_method', type=str , default='c')
     parser.add_argument('--load_val', action='store_true',
             help='if true, loads gt for all samples into json file in data dir')
+    parser.add_argument('--adapt', action='store_true',
+            help='adapt prediction mode, gt is sampled randomly from other images')
     args = parser.parse_args()
     print(args)
     main(args)
