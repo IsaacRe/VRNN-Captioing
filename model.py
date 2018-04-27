@@ -283,7 +283,7 @@ class DecoderRNN(nn.Module):
 
             inputs = self.embed(user_input[:,i].unsqueeze(0))
 
-        sampled_ids = [torch.LongTensor([[0]] * 2)] * (input_size)
+        sampled_ids = [torch.LongTensor([[0] * 2])] * (input_size)
         
         inputs = torch.cat([inputs.clone(), inputs.clone()], 0)
 
@@ -293,14 +293,14 @@ class DecoderRNN(nn.Module):
         for i in range(20 - input_size):
             hiddens, states = self.lstm(inputs, states)
             output = self.linear(hiddens.squeeze(1))
-            all_predictions.append(output[0].data.cpu())
+            all_predictions.append(output[0].data.cpu().unsqueeze(0))
             
             predicted = output.max(1)[1]
-            sampled_ids.append(predicted.data.cpu())
+            sampled_ids.append(predicted.data.cpu().unsqueeze(0))
             inputs = self.embed(predicted).unsqueeze(1)
 
-        all_predictions = torch.stack(all_predictions, 1)
-        sampled_ids = torch.cat(sampled_ids, 1)
+        all_predictions = torch.cat(all_predictions, 0)
+        sampled_ids = torch.cat(sampled_ids, 0)
 
         return sampled_ids, all_predictions
 
