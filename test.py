@@ -121,15 +121,12 @@ def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
     # Decode word_ids to words
     sampled_caption = []
     sampled_caption_no_update = []
-    for word_id in sampled_ids[0]:
-        word = vocab.idx2word[word_id]
+    for word_id in sampled_ids:
+        word = '<end>' if word == '<end>' else vocab.idx2word[word_id[0]]
         sampled_caption_no_update.append(word)
-        if word == '<end>':
-            break
-    for word_id in sampled_ids[1]:
-        word = vocab.idx2word[word_id]
+        wordu = '<end>' if wordu == '<end>' else vocab.idx2word[word_id[1]]
         sampled_caption.append(word)
-        if word == '<end>':
+        if word == '<end>' and wordu == '<end>':
             break
 
     return ' '.join(sampled_caption_no_update[1:-1]), ' '.join(sampled_caption[1:-1]), predictions
