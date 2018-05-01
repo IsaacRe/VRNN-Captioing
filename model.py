@@ -289,10 +289,11 @@ class DecoderRNN(nn.Module):
             outputs.append(output.data.cpu())
             
             predicted = output.max(1)[1]
-            sampled_ids.append(predicted.data.cpu())
+            sampled_ids.append(predicted.data.cpu().view(2,1))
             inputs = self.embed(predicted).unsqueeze(1)
 
         all_predictions = torch.stack(outputs, 1)
+        # print sampled_ids
         sampled_ids = torch.cat(sampled_ids, 1)
 
         return sampled_ids, all_predictions

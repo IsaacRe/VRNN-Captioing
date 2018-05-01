@@ -131,6 +131,16 @@ def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
 
     return ' '.join(sampled_caption_no_update[1:-1]), ' '.join(sampled_caption[1:-1]), predictions
 
+def semantic_similarity(decoder,vocab,str1,str2):
+    assert len(str1)==len(str2), "two sentences should have the same length"
+    similarity = 0
+    pdist = nn.CosineSimilarity()
+    for word1,word2 in zip(str1,str2):
+        embed1 = decoder.embed(to_var(torch.LongTensor([vocab.word2idx[word1]])))
+        embed2 = decoder.embed(to_var(torch.LongTensor([vocab.word2idx[word2]])))
+        similarity += pdist(embed1, embed2)
+    return similarity/len(str1)
+
 
 def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_results.json'):
     coco = COCO(val)
@@ -202,10 +212,17 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
     coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
     coco_json_update = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results_u.json')
 
+    low = []
+    with open("lowest_score.txt", "r") as f:
+        low = json.load(f)
+    low = [ele[1] for ele in low]
+    similarity = 0.0
+    count = 0
     for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples:
             break
-
+        # if img_id[0] not in low:
+        #     continue
         image_tensor = to_var(image, volatile=True)
         feature = encoder(image_tensor)
 
@@ -215,6 +232,12 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
                                           vocab, c_step, args.prop_steps)
             
             caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
+            
+            no_hint, _, _ = decode_beta(feature, [], decoder, \
+                                                      vocab, c_step, args.prop_steps)
+            similarity += semantic_similarity(decoder,vocab,no_hint.split()[:num_hints+1],caption[:num_hints+1])
+            count+=1
+            
             no_update = ' '.join(caption[:num_hints]) + ' ' + ' '.join(no_update.split()[num_hints:])
             pred_caption = ' '.join(caption[:num_hints]) + ' ' + ' '.join(pred_caption.split()[num_hints:])
             caption = ' '.join(caption)
@@ -229,7 +252,9 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
-
+    print "******similarity********"
+    print count
+    print similarity/count
     if args.msm == "co":
         coco_json.create_json()
         coco_json_update.create_json()
