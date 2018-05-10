@@ -73,7 +73,7 @@ def extractFeature(image_id):
         image = session.query(Input).filter_by(id = image_id).one()
         feature = encode("."+image.path,vocab)
         gv["feature"]=feature
-        sentence_wo_update,sentence_with_update = decode(feature,[],decoder,vocab,c_step=5.0)
+        sentence_wo_update,sentence_with_update = decode(feature,[vocab.word2idx["<start>"]],decoder,vocab,c_step=5.0)
         print sentence_wo_update
         image.translation_noUpdate = sentence_wo_update
 

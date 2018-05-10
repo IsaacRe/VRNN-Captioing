@@ -29,7 +29,7 @@ def load_image(image_path, transform=None):
     return image
 
 def decode(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
-    sampled, _ = decoder.sample(feature,user_input,vocab,c_step=c_step,prop_step=prop_step)
+    sampled, _ = decoder.sample(feature,torch.cuda.LongTensor(user_input),vocab,c_step=c_step,prop_step=prop_step)
     sampled_ids, sampled_ids_u = sampled[0].numpy(), sampled[1].numpy()
     
     # Decode word_ids to words

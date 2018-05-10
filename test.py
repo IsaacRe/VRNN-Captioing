@@ -98,18 +98,6 @@ def load_image(image_path, transform=None):
 """
 Returns sampled word id's and prediction tensor of the last step
 """
-def decode(feature,user_input,decoder,vocab,c_step=0.0):
-    sampled_ids, predictions = decoder.sample(feature,user_input,vocab,c_step=c_step)
-    sampled_ids = sampled_ids.cpu().data.numpy()
-    
-    # Decode word_ids to words
-    sampled_caption = []
-    for word_id in sampled_ids:
-        word = vocab.idx2word[word_id]
-        sampled_caption.append(word)
-        if word == '<end>':
-            break
-    return ' '.join(sampled_caption), predictions
 
 def decode_beta(feature,user_input,decoder,vocab,c_step=0.0,prop_step=1):
     sampled_ids, predictions = decoder.sample(feature,user_input,vocab,c_step=c_step, prop_step=prop_step, update_method=args.update_method)
@@ -230,13 +218,14 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
         if args.msm == "co":
             no_update, pred_caption, _ = decode_beta(feature, caption[0,:num_hints+1], decoder, \
                                           vocab, c_step, args.prop_steps)
-            
+            # print caption
+            # no_hint, _, _ = decode_beta(feature,caption[0,:1], decoder, \
+            #                                           vocab, c_step, args.prop_steps)
+
             caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
-            
-            no_hint, _, _ = decode_beta(feature, [], decoder, \
-                                                      vocab, c_step, args.prop_steps)
-            similarity += semantic_similarity(decoder,vocab,no_hint.split()[:num_hints+1],caption[:num_hints+1])
-            count+=1
+
+            # similarity += semantic_similarity(decoder,vocab,no_hint.split()[:num_hints+1],caption[:num_hints+1])
+            # count+=1
             
             no_update = ' '.join(caption[:num_hints]) + ' ' + ' '.join(no_update.split()[num_hints:])
             pred_caption = ' '.join(caption[:num_hints]) + ' ' + ' '.join(pred_caption.split()[num_hints:])
@@ -253,8 +242,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
     print "******similarity********"
-    print count
-    print similarity/count
+    # print count
+    # print similarity/count
     if args.msm == "co":
         coco_json.create_json()
         coco_json_update.create_json()
@@ -275,7 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_samples', type=int , default=2000)
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--c_step', type=float , default=0.0)
+    parser.add_argument('--c_step', type=float , default=2.0)
     parser.add_argument('--compare_steps', type=int , default=10)
     parser.add_argument('--prop_steps', type=int , default=-1)
     parser.add_argument('--msm',type=str,default="co",
