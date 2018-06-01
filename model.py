@@ -169,7 +169,7 @@ class DecoderRNN(nn.Module):
             # Proceed to do the actuall updates on current cell state
             for update in updates:
                 states[1].data -= update * c_step
-                states[0].data = self.h_from_c(inputs, prev_h, states[1]).data
+            states[0].data = self.h_from_c(inputs, prev_h, states[1]).data
         
 
             inputs = self.embed(user_input[:,i].unsqueeze(0))

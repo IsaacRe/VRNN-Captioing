@@ -4,6 +4,8 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
+import sys
+sys.path.append('utils/')
 from data_loader import get_loader 
 from build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN 
@@ -89,7 +91,7 @@ def main(args):
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(start_epoch, args.num_epochs):
-        for i, (images, captions, lengths) in enumerate(data_loader):
+        for i, (images, captions, lengths,_,_) in enumerate(data_loader):
             
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
@@ -102,12 +104,10 @@ def main(args):
             features = encoder(images)
             out = decoder(features, captions, lengths)
             loss = criterion(out, targets)
-            
             batch_loss.append(loss.data[0])
             
             loss.backward()
             optimizer.step()
-        
 
 
             # # Print log info

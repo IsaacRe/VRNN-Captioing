@@ -6,6 +6,9 @@ import numpy as np
 import pickle 
 import os
 from sys import path
+path.append('../')
+path.append('../utils')
+path.append('../../coco-caption')
 import json
 from PIL import Image
 from torch.autograd import Variable 
@@ -14,7 +17,7 @@ from build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN
 from data_loader import get_loader
 from collections import Counter
-from pycocotoolscap.coco import COCO
+from pycocotools.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap
 from torch.nn.utils.rnn import pack_padded_sequence
 
@@ -130,7 +133,7 @@ def semantic_similarity(decoder,vocab,str1,str2):
     return similarity/len(str1)
 
 
-def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_results.json'):
+def cocoEval(val='../data/captions_val2014.json', res='../data/captions_val2014_results.json'):
     coco = COCO(val)
     cocoRes = coco.loadRes(res)
 
@@ -151,7 +154,7 @@ def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_result
 
 
 def main(args):
-    with open('./data/vocab.pkl', 'rb') as f:
+    with open('../data/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
@@ -170,7 +173,7 @@ def main(args):
                                             args.num_hints, args.debug, args.c_step, args.no_avg)
     if args.msm == "co":
         scores = cocoEval()
-        scores_u = cocoEval(res='data/captions_val2014_results_u.json')
+        scores_u = cocoEval(res='../data/captions_val2014_results_u.json')
         print(scores)
         print(scores_u)
 
@@ -180,8 +183,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
        transforms.ToTensor(), 
        transforms.Normalize((0.485, 0.456, 0.406), 
                             (0.229, 0.224, 0.225))])
-    rt_image = './data/val_resized2014'
-    annotations = args.caption or './data/annotations/captions_val2014.json' 
+    rt_image = '../data/val_resized2014'
+    annotations = args.caption or '../data/annotations/captions_val2014.json' 
     shuffle = False
     data_loader = get_loader(rt_image,
                   annotations,
@@ -197,20 +200,13 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     num_sampled = 0
     data_points = []
-    coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
-    coco_json_update = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results_u.json')
+    coco_json = CocoJson('../data/captions_val2014.json', '../data/captions_val2014_results.json')
+    coco_json_update = CocoJson('../data/captions_val2014.json', '../data/captions_val2014_results_u.json')
 
-    low = []
-    with open("lowest_score.txt", "r") as f:
-        low = json.load(f)
-    low = [ele[1] for ele in low]
-    similarity = 0.0
     count = 0
     for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
         if num_sampled > num_samples or i > num_samples:
             break
-        # if img_id[0] not in low:
-        #     continue
         image_tensor = to_var(image, volatile=True)
         feature = encoder(image_tensor)
 
@@ -224,9 +220,6 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
             caption = [vocab.idx2word[c] for c in caption[0,1:-1]]
 
-            # similarity += semantic_similarity(decoder,vocab,no_hint.split()[:num_hints+1],caption[:num_hints+1])
-            # count+=1
-            
             no_update = ' '.join(caption[:num_hints]) + ' ' + ' '.join(no_update.split()[num_hints:])
             pred_caption = ' '.join(caption[:num_hints]) + ' ' + ' '.join(pred_caption.split()[num_hints:])
             caption = ' '.join(caption)
@@ -241,9 +234,7 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
             print("Ground Truth: {}\nNo hint: {}\nHint: {}\
                   \nGround Truth Score: {}\nGround Truth Score Improve {}\
                   ".format(caption, hypothesis, hypothesis_hint, gt_score, gt_score_hint))
-    print "******similarity********"
-    # print count
-    # print similarity/count
+
     if args.msm == "co":
         coco_json.create_json()
         coco_json_update.create_json()
@@ -255,13 +246,13 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--encoder', type=str , default = './models/encoder_pretrained.pkl',
+    parser.add_argument('--encoder', type=str , default = '../models/encoder_pretrained.pkl',
                         help='specify encoder')
-    parser.add_argument('--decoder', type=str , default = './models/decoder_pretrained.pkl',
+    parser.add_argument('--decoder', type=str , default = '../models/decoder_pretrained.pkl',
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
-    parser.add_argument('--caption', type=str , default = './data/annotations/captions_val2014.json')
-    parser.add_argument('--num_samples', type=int , default=2000)
+    parser.add_argument('--caption', type=str , default = '../data/annotations/captions_val2014.json')
+    parser.add_argument('--num_samples', type=int , default=4000)
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--c_step', type=float , default=2.0)
@@ -270,7 +261,7 @@ if __name__ == '__main__':
     parser.add_argument('--msm',type=str,default="co",
             help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     parser.add_argument('--no_avg', action='store_true')
-    parser.add_argument('--filepath', type=str , default='hint_improvement.pkl')
+    parser.add_argument('--filepath', type=str , default='../hint_improvement.pkl')
     parser.add_argument('--update_step', type=int , default=0)
     parser.add_argument('--update_method', type=str , default='c')
     parser.add_argument('--load_val', action='store_true',

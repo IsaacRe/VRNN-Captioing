@@ -5,6 +5,10 @@ import numpy as np
 import argparse
 import pickle 
 import os
+import sys
+sys.path.append("../")
+sys.path.append("../utils")
+
 from torch.autograd import Variable 
 from torchvision import transforms 
 from build_vocab import Vocabulary
@@ -69,7 +73,7 @@ def encode(img,vocab,):
                                  (0.229, 0.224, 0.225))])
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
-    encoder.load_state_dict(torch.load('./models/encoder_pretrained.pkl'))
+    encoder.load_state_dict(torch.load('../models/encoder_pretrained.pkl'))
     image = load_image(img, transform)
     image_tensor = to_var(image, volatile=True)
     
@@ -100,7 +104,7 @@ def main(args):
     decoder.load_state_dict(torch.load(args.decoder_path))
 
     # Prepare Image
-    image = load_image('data/step_1/image_'+args.image+'.jpg', transform)
+    image = load_image('../application/static/candidate/image_candidates/'+args.image+'.jpg', transform)
     image_tensor = to_var(image, volatile=True)
     # If use gpu
     if torch.cuda.is_available():
@@ -109,16 +113,18 @@ def main(args):
     
     # Generate caption from image
     feature = encoder(image_tensor)
-    sentence = decode(feature,[],decoder,vocab, c_step=args.c_step,prop_step=args.prop_step)
+    sentence = decode(feature,[vocab.word2idx["<start>"]],decoder,vocab, c_step=args.c_step,prop_step=args.prop_step)
 
-    print (sentence)
+    print (sentence[1])
     user_input = raw_input("Does it make sense to you?(y/n)\n")
 
     if str(user_input) == "n":
-        f = open('data/step_1/caption_'+args.image+'.txt','r')
+        f = open('../application/static/candidate/caption_candidates/'+args.image+'.txt','r')
         ground_true = f.read().lower()
         teach_wordid = []
+        teach_word = []
         teach_wordid.append(vocab.word2idx["<start>"])
+        teach_word.append("<start>")
         while(True):
             print "This is the ground true:\n"+ground_true+"\n"+\
             "###################################################\n"
@@ -127,11 +133,13 @@ def main(args):
             if word.lower() not in vocab.word2idx:
                 print "Word is not in the vocabulary, please try another one!"
                 continue
+            teach_word.append(word.lower())
             word_idx = vocab.word2idx[word.lower()]
             teach_wordid.append(word_idx)
             sentence = decode(feature,teach_wordid,decoder,vocab, c_step=args.c_step,prop_step=args.prop_step)
             print "###################################################\n"
-            print "Current Translated sentence is: \n"+sentence[1]+"\n"
+            complete_sentence =  ' '.join(teach_word+sentence[1].split()[len(teach_wordid):])
+            print "Current Translated sentence is: \n"+complete_sentence+"\n"
     
 
 
@@ -140,18 +148,18 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--image_dir', type=str, default='./data/resizedVal2014' ,
+    parser.add_argument('--image_dir', type=str, default='../data/resizedVal2014' ,
                         help='directory for resized images')
     parser.add_argument('--caption_path', type=str,
                         default='./data/annotations/captions_val2014.json',
                         help='path for train annotation json file')
     parser.add_argument('--image', type=str, required=True,
                         help='input image for generating caption')
-    parser.add_argument('--encoder_path', type=str, default='./models/encoder_pretrained.pkl',
+    parser.add_argument('--encoder_path', type=str, default='../models/encoder_pretrained.pkl',
                         help='path for trained encoder')
-    parser.add_argument('--decoder_path', type=str, default='./models/decoder_pretrained.pkl',
+    parser.add_argument('--decoder_path', type=str, default='../models/decoder_pretrained.pkl',
                         help='path for trained decoder')
-    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
+    parser.add_argument('--vocab_path', type=str, default='../data/vocab.pkl',
                         help='path for vocabulary wrapper')
     
     # Model parameters (should be same as paramters in train.py)

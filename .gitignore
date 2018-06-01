@@ -1,11 +1,9 @@
 .*
-/data
+data/*
 hint_improvement.pkl
-/course.db-journal
-/models
-/static/*
+application/course.db
+models/*
+application/step_1/static/*
 *.pyc
 *.txt
 course.db-journal
-/pycocotoolscap
-/pycocoevalcap
