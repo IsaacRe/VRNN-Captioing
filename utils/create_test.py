@@ -13,9 +13,11 @@ coco = CocoDataset(root='../data/val_resized2014',
                    vocab=vocab,
                    transform=None)
 output_dir = '../application/static/candidate/'
-for i in range(20):
+for i in range(20,40):
   img = coco[i][0]
   img.save(os.path.join(output_dir, str(i)+".jpg"), img.format)
-  with open(str(i)+'.txt','w') as f:
-  	f.write(coco[i][1])
+  with open(output_dir+str(i)+'.txt','w') as f:
+  	caption = ' '.join([vocab.idx2word[id] for id in coco[i][1][1:-1]])
+  	print caption
+  	f.write(caption)
  

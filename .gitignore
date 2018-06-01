@@ -6,4 +6,6 @@ models/*
 application/step_1/static/*
 *.pyc
 *.txt
+*.jpg
+*.json
 course.db-journal
