@@ -66,7 +66,7 @@ $ python utils/create_test.py
 $ cd application/static/candidate
 $ mkdir image_candidate
 $ mkdir caption_candidate
-$ mv *.img image_candidate/
+$ mv *.jpg image_candidate/
 $ mv *.txt image_candidate/
 
 ```
