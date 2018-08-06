@@ -6,16 +6,13 @@ import numpy as np
 import pickle 
 import os
 from sys import path
-path.append('../')
-path.append('../utils')
-path.append('../../coco-caption')
 import json
 from PIL import Image
 from torch.autograd import Variable 
 from torchvision import transforms 
-from build_vocab import Vocabulary
+from utils.build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN
-from data_loader import get_loader
+from utils.data_loader import get_loader
 from collections import Counter
 from pycocotools.coco import COCO
 from pycocoevalcap.eval import COCOEvalCap

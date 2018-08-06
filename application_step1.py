@@ -1,34 +1,28 @@
 # Author: Bo Pang
 # Date : Nov 22 2017
 import sys
-sys.path.append('../')
-sys.path.append('../test')
-sys.path.append('../utils')
-
-from flask import Flask, render_template, request, redirect,jsonify, url_for, flash
+from flask import Flask, make_response, render_template, request, redirect,jsonify, url_for, flash
 import datetime
 from sqlalchemy import create_engine, asc
 from sqlalchemy.orm import sessionmaker
-from database_setup import Base, Input
+from application.database_setup import Base, Input
 from flask import session as login_session
 import random, string
-# import httplib2
 import json
-from flask import make_response
 import requests
-from build_vocab import Vocabulary
+from utils.build_vocab import Vocabulary
 import pickle
 from step_1 import encode, decode, decode_word
 from model import EncoderCNN, DecoderRNN
 import torch
-from eval import CocoJson, cocoEval
-import data_loader
+from evaluate import CocoJson, cocoEval
+from utils import data_loader
 
 app = Flask(__name__)
 
 
 APPLICATION_NAME = "Image Captioning Autocompletion"
-coco_json_dir = "./step_1/"
+coco_json_dir = "./application/step_1/"
 gv = {}
 
 #Connect to Database and create database session
@@ -39,13 +33,13 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 # load vocabulary
-with open('../data/vocab.pkl', 'rb') as f:
+with open('data/vocab.pkl', 'rb') as f:
     vocab = pickle.load(f)
 
 decoder = DecoderRNN(256, 512,len(vocab), 1)
 if torch.cuda.is_available():
     decoder.cuda()
-decoder.load_state_dict(torch.load('../models/decoder_pretrained.pkl'))
+decoder.load_state_dict(torch.load('models/decoder_pretrained.pkl'))
 
 #Show all courses with all instructors
 @app.route('/')
