@@ -6,15 +6,12 @@ import argparse
 import pickle 
 import os
 import sys
-sys.path.append("../")
-sys.path.append("../utils")
-
 from torch.autograd import Variable 
 from torchvision import transforms 
-from build_vocab import Vocabulary
+from utils.build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN
 from PIL import Image
-from data_loader import CocoDataset
+from utils.data_loader import CocoDataset
 from collections import Counter
 from pycocotools.coco import COCO
 

@@ -4,8 +4,8 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
-from data_loader import get_loader 
-from build_vocab import Vocabulary
+from utils.data_loader import get_loader 
+from utils.build_vocab import Vocabulary
 from model import EncoderCNN, DecoderRNN 
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
