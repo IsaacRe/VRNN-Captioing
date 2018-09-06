@@ -130,7 +130,7 @@ def semantic_similarity(decoder,vocab,str1,str2):
     return similarity/len(str1)
 
 
-def cocoEval(val='../data/captions_val2014.json', res='../data/captions_val2014_results.json'):
+def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_results.json'):
     coco = COCO(val)
     cocoRes = coco.loadRes(res)
 
@@ -143,15 +143,11 @@ def cocoEval(val='../data/captions_val2014.json', res='../data/captions_val2014_
     for metric, score in cocoEval.eval.items():
         scores[metric] = score
 
-    if __name__ == '__main__':
-        with open(args.filepath, 'w+') as f:
-            pickle.dump(scores, f)
-
     return scores
 
 
 def main(args):
-    with open('../data/vocab.pkl', 'rb') as f:
+    with open('data/vocab.pkl', 'rb') as f:
         vocab = pickle.load(f)
     encoder = EncoderCNN(256)
     encoder.eval()  # evaluation mode (BN uses moving mean/variance)
@@ -170,9 +166,12 @@ def main(args):
                                             args.num_hints, args.debug, args.c_step, args.no_avg)
     if args.msm == "co":
         scores = cocoEval()
-        scores_u = cocoEval(res='../data/captions_val2014_results_u.json')
+        scores_u = cocoEval(res='data/captions_val2014_results_u.json')
         print(scores)
         print(scores_u)
+
+        with open(args.filepath, 'w+') as f:
+            pickle.dump((scores,scores_u), f)        
 
 def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0, no_avg=True):
     transform = transforms.Compose([
@@ -180,8 +179,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
        transforms.ToTensor(), 
        transforms.Normalize((0.485, 0.456, 0.406), 
                             (0.229, 0.224, 0.225))])
-    rt_image = '../data/val_resized2014'
-    annotations = args.caption or '../data/annotations/captions_val2014.json' 
+    rt_image = 'data/val_resized2014'
+    annotations = args.caption or 'data/annotations/captions_val2014.json' 
     shuffle = False
     data_loader = get_loader(rt_image,
                   annotations,
@@ -197,8 +196,8 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 
     num_sampled = 0
     data_points = []
-    coco_json = CocoJson('../data/captions_val2014.json', '../data/captions_val2014_results.json')
-    coco_json_update = CocoJson('../data/captions_val2014.json', '../data/captions_val2014_results_u.json')
+    coco_json = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results.json')
+    coco_json_update = CocoJson('data/captions_val2014.json', 'data/captions_val2014_results_u.json')
 
     count = 0
     for i, (image, caption, length, img_id, ann_id) in enumerate(data_loader):
@@ -243,12 +242,12 @@ def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--encoder', type=str , default = '../models/encoder_pretrained.pkl',
+    parser.add_argument('--encoder', type=str , default = 'models/encoder_pretrained.pkl',
                         help='specify encoder')
-    parser.add_argument('--decoder', type=str , default = '../models/decoder_pretrained.pkl',
+    parser.add_argument('--decoder', type=str , default = 'models/decoder_pretrained.pkl',
                         help='specify decoder')
     parser.add_argument('--test_set', action='store_true')
-    parser.add_argument('--caption', type=str , default = '../data/annotations/captions_val2014.json')
+    parser.add_argument('--caption', type=str , default = 'data/annotations/captions_val2014.json')
     parser.add_argument('--num_samples', type=int , default=4000)
     parser.add_argument('--num_hints', type=int , default=2)
     parser.add_argument('--debug', action='store_true')
@@ -258,7 +257,7 @@ if __name__ == '__main__':
     parser.add_argument('--msm',type=str,default="co",
             help='ps: probability score, ce: CrossEntropyLoss, co: cocoEval')
     parser.add_argument('--no_avg', action='store_true')
-    parser.add_argument('--filepath', type=str , default='../hint_improvement.pkl')
+    parser.add_argument('--filepath', type=str , default='hint_improvement.pkl')
     parser.add_argument('--update_step', type=int , default=0)
     parser.add_argument('--update_method', type=str , default='c')
     parser.add_argument('--load_val', action='store_true',
