@@ -3,9 +3,14 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, PackedSequence
+from torch.distributions import Normal
 from torch.autograd import Variable
-import pdb
 
+
+def to_var(x, volatile=False):
+    if torch.cuda.is_available():
+        return Variable(x, volatile=volatile).cuda()
+    return Variable(x, volatile=volatile)
 
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
@@ -31,7 +36,84 @@ class EncoderCNN(nn.Module):
         features = self.bn(self.linear(features))
         return features
     
-    
+"""
+Implementation of Variational RNN (LSTM)
+"""
+class VRNN(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, latent_size, num_layers_lstm):
+        """Set the hyper-parameters and build the layers."""
+        super(VRNN, self).__init__()
+        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.lstm = nn.LSTM(embed_size + latent_size, hidden_size, num_layers_lstm, batch_first=True)
+        # q(z|x, h)
+        self.q_z = nn.Linear(embed_size + hidden_size, latent_size * 2)
+        # p(z|h)
+        self.prior = nn.Linear(hidden_size, latent_size * 2)
+        # gaussian noise generator for re-paramaterization trick
+        self.normal = Normal(torch.zeros(latent_size,), torch.ones(latent_size,))
+        # q(x|z) backwards inference
+        self.q_x = nn.Linear(latent_size + hidden_size, vocab_size)
+        self.init_weights()
+
+    def init_weights(self):
+        """Initialize weights."""
+        self.embed.weight.data.uniform_(-0.1, 0.1)
+        self.q_z.weight.data.uniform_(-0.1, 0.1)
+        self.q_z.bias.data.fill_(0)
+        self.prior.weight.data.uniform_(-0.1, 0.1)
+        self.prior.bias.data.fill_(0)
+        self.q_x.weight.data.uniform_(-0.1, 0.1)
+        self.q_x.bias.data.fill_(0)
+
+    """
+    Conduct forward pass, outputting prior, posterior, and inference distributions
+    """
+    def forward(self, features, captions, lengths, states=None, z_0=None):
+        """ Decode image feature vectors and generates captions. """
+        
+        z_padding = to_var(torch.zeros(features.shape[0], self.q_z.out_features / 2))
+        if z_0 is None:
+            z_0 = z_padding
+        features = torch.cat([features, z_0], dim=1).unsqueeze(1)
+
+        # conduct initial lstm step to embed image features in internal states
+        h, states = self.lstm(features, states)
+        h = h.squeeze(1)
+        embeddings = self.embed(captions)
+
+        p_mus, p_sigmas, q_mus, q_sigmas, q_xs = [], [], [], [], []
+        for i in range(max(lengths)):
+            # conduct forward pass for VRNN cell
+
+            # get tuple of (mean, std dev) for prior from h_tm1
+            p_mu, p_sigma = self.prior(h).chunk(2, dim=1)
+            # get tuple of (mean, var) for q_z from x_t and h_tm1
+            q_mu, q_sigma = self.q_z(torch.cat([embeddings[:,i], h], dim=1)).chunk(2, dim=1)
+            # sample from q_z using reparameterization to get z - we take n=batch size samples
+            z = to_var(self.normal.sample_n(q_mu.shape[0])) * q_sigma + q_mu
+            # get q_x from z_t and h_tm1
+            q_x = self.q_x(torch.cat([z, h], dim=1))
+            q_x = nn.functional.log_softmax(q_x, dim=1)
+            # perform lstm step to get h_t from x_t, z_t, h_tm1 - unsqueeze for lstm api
+            inputs = torch.cat([embeddings[:,i], z], dim=1).unsqueeze(1)
+            h, states = self.lstm(inputs, states)
+            h = h.squeeze(1)
+
+            p_mus.append(p_mu)
+            p_sigmas.append(p_sigma)
+            q_mus.append(q_mu)
+            q_sigmas.append(q_sigma)
+            q_xs.append(q_x)
+
+
+        # pack padded sequence to mask out padding terms and flatten batch + step dimensions
+        [p_mus, p_sigmas, q_mus, q_sigmas, q_xs] = [pack_padded_sequence(torch.stack(t, dim=1), lengths, batch_first=True)[0] for t in [p_mus, p_sigmas, q_mus, q_sigmas, q_xs]]
+
+        return (p_mus, p_sigmas), (q_mus, q_sigmas), q_xs
+
+    def sample(self, features, ground_truth, h_0=None, c_0=None):
+        pass
+
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
         """Set the hyper-parameters and build the layers."""
