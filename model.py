@@ -74,7 +74,7 @@ class VRNN(nn.Module):
     Conduct forward pass, outputting prior, posterior, and inference distributions
         z_step: 'all' - compute distributions for every step
                 t - compute distributions during step, t, compute deterministic output for all
-                    other steps
+                    steps following
     """
     def forward(self, features, captions, lengths, states=None, z_0=None, z_step='all'):
         """ Decode image feature vectors and generates captions. """
@@ -133,8 +133,92 @@ class VRNN(nn.Module):
 
         return (p_mus, p_sigmas), (q_mus, q_sigmas), q_xs, det_xs
 
-    def sample(self, features, ground_truth, h_0=None, c_0=None):
-        pass
+    """
+    Encode the first t ground truths, for t = z_step, conducting a variational rnn cell forward pass
+        during step t, in order to obtain q(z_t|x_t, h_t-1) and p(z_t|h_t-1) that will both define
+        (along with x_t, h_t-1) a distribution over h_t, and thereby a distribution over decoded
+        captions beginning with the specified ground truths
+    """
+    def encode(self, features, ground_truth, z_step, states=None, z_0=None):
+        z_padding = to_var(torch.zeros(features.shape[0], self.q_z.out_features / 2))
+        if z_0 is None:
+            z_0 = z_padding
+        features = torch.cat([features, z_0], dim=1).unsqueeze(1)
+
+        # conduct initial lstm step to embed image features in internal states
+        _, states = self.lstm(features, states)
+        embeddings = self.embed(ground_truth)
+
+        # encode to get z_t, h_t-1
+        
+        # conduct deterministic forward pass for all steps before z_step
+        for i in range(z_step):
+            inputs = torch.cat([embeddings[:,i], z_padding], dim=1).unsqueeze(1)
+            h, states = self.lstm(inputs, states)
+            h = h.squeeze(1)
+            
+        # conduct forward pass for VRNN cell during z_step
+        # get tuple of (mean, std dev) for prior from h_tm1
+        p_mu, p_sigma = self.prior(h).chunk(2, dim=1)
+        # get tuple of (mean, var) for q_z from x_t and h_tm1
+        q_mu, q_sigma = self.q_z(torch.cat([embeddings[:,z_step], h], dim=1)).chunk(2, dim=1)
+        
+        return (p_mu, p_sigma), (q_mu, q_sigma), states, embeddings[:,z_step]
+
+            
+
+    """
+    Decode the remainder of a caption given h_t, c_t and x_t-1
+        h: [layers X batch X hidden]
+        c: [layers X batch X hidden]
+        x: [batch X embed]
+    """
+    def decode(self, states, x, z_step):
+        z_padding = to_var(torch.zeros(x.shape[0], self.q_z.out_features / 2))
+        caption = []
+        for i in range(20 - z_step - 1):
+            inputs = torch.cat([x, z_padding], dim=1).unsqueeze(1)
+            h, states = self.lstm(inputs, states)
+            h = h.squeeze(1)
+
+            x = self.det_x(h)   # [batch X dictionary]
+            x = x.max(1)[1]     # [batch]
+
+            caption.append(x.data)
+
+            x = self.embed(x)
+
+        return torch.stack(caption, dim=1)
+
+    """
+    Encode latent distribution at step z_step, sample, then decode latent vector + hidden states
+        into the remaining part of the image caption
+    """
+    def sample(self, features, ground_truth, states=None, z_0=None, z_step=3):
+        # get prior and posterior densities at z_step
+        (p_mu, p_sigma), (q_mu, q_sigma), states, x = self.encode(features, ground_truth, z_step)
+
+        # sample to get z
+        z_p = to_var(self.normal.sample_n(features.shape[0])) * p_sigma + p_mu
+        z_q = to_var(self.normal.sample_n(features.shape[0])) * q_sigma + q_mu
+
+        # get hidden states to give to decoder
+        inputs_p = torch.cat([x, z_p], dim=1).unsqueeze(1)
+        inputs_q = torch.cat([x, z_q], dim=1).unsqueeze(1)
+
+        h_p, states_p, h_q, states_q = self.lstm(inputs_p, states) + self.lstm(inputs_q, states)
+        h_p, h_q = h_p.squeeze(1), h_q.squeeze(1)
+
+        # get predicted embedding of next step from h
+        x_p, x_q = self.det_x(h_p), self.det_x(h_q)     # [batch X dictionary]
+        x_p, x_q = x_p.max(1)[1], x_q.max(1)[1]         # [batch]
+        x_p, x_q = self.embed(x_p), self.embed(x_q)     # [batch X embed]
+
+        # decode from z, x, hidden states the remaining caption
+        captions_p = self.decode(states_p, x_p, z_step)
+        captions_q = self.decode(states_q, x_q, z_step) 
+
+        return captions_p, captions_q
 
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):

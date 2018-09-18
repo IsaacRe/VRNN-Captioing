@@ -1,5 +1,5 @@
-import sys, traceback, pdb
 import argparse
+import sys, traceback, pdb
 import torch
 import torch.nn as nn
 import numpy as np
@@ -44,8 +44,8 @@ def main(args):
         transforms.ToTensor(), 
         transforms.Normalize((0.485, 0.456, 0.406), 
                              (0.229, 0.224, 0.225))])
-    val_loader = get_loader('./data/val_resized2014/', './data/annotations/captions_val2014.json',
-                             vocab, transform, 1, False, 1)
+    #val_loader = get_loader('./data/val_resized2014/', './data/annotations/captions_val2014.json',
+    #                         vocab, transform, 1, False, 1)
 
     start_epoch = 0
 
@@ -64,13 +64,18 @@ def main(args):
     if encoder_state == '': encoder_state = 'new'
     if decoder_state == '': decoder_state = 'new'
 
-    if decoder_state != 'new':
-        start_epoch = int(decoder_state.split('-')[1])
-
     print("Using encoder: {}".format(encoder_state))
     print("Using decoder: {}".format(decoder_state))
 
-        
+    try:
+        start_epoch = int(float(decoder_state.split('-')[1]))
+    except:
+        pass
+
+    if encoder_state != 'new':
+        encoder.load_state_dict(torch.load(encoder_state))
+    if decoder_state != 'new':
+        decoder.load_state_dict(torch.load(decoder_state))
     
     # Build data loader
     data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
@@ -159,20 +164,20 @@ def main(args):
                           %(epoch, args.num_epochs, i, total_step, 
                             loss.data[0], np.exp(loss.data[0])))
                 
-            """
             # Save the models
             if (i+1) % args.save_step == 0:
                 torch.save(decoder.state_dict(), 
                            os.path.join(args.model_path, 
                                         'decoder-%d-%d.pkl' %(epoch+1, i+1)))
-                torch.save(encoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'encoder-%d-%d.pkl' %(epoch+1, i+1)))
+                if args.train_encoder:
+                    torch.save(encoder.state_dict(), 
+                               os.path.join(args.model_path, 
+                                            'encoder-%d-%d.pkl' %(epoch+1, i+1)))
                 with open(args.model_path + 'training_loss.pkl', 'w+') as f:
                     pickle.dump(batch_loss, f)
                 with open(args.model_path + 'training_val.pkl', 'w+') as f:
                     pickle.dump(batch_acc, f)
-            """
+
     with open(args.model_path + args.logfile, 'a') as f:
         f.write("Training finished at {} .\n\n".format(str(datetime.now())))
                 
@@ -212,12 +217,14 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--learning_rate', type=float, default=0.0003)
     parser.add_argument('--encoder', type=str, default='models/encoder_pretrained.pkl')
-    parser.add_argument('--decoder', type=str, default='')
+    parser.add_argument('--decoder', type=str, default='models/decoder_pretrained_vrnn.pkl')
     parser.add_argument('--restart', action='store_true')
     parser.add_argument('--train_encoder', action='store_true')
     parser.add_argument('--val_step', type=int, default=100)
     parser.add_argument('--z_step' , type=int, default=3,
                         help='step at which to train latent state distribution')
+    parser.add_argument('--elbo_weight',  type=float, default=0.2,
+                        help='weight for the elbo term in the loss function')
     args = parser.parse_args()
     print(args)
     try:
