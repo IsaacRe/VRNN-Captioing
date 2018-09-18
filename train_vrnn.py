@@ -1,3 +1,4 @@
+import sys, traceback, pdb
 import argparse
 import torch
 import torch.nn as nn
@@ -85,10 +86,12 @@ def main(args):
         decoder.cuda()
 
     # Optimizer
+    cross_entropy = nn.CrossEntropyLoss()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
 
     batch_loss = []
+    batch_loss_det = []
     batch_kl = []
     batch_ml = []
     batch_acc = []
@@ -105,26 +108,39 @@ def main(args):
             images = to_var(images, volatile=True)
             captions = to_var(captions)
 
+            # assuming following assertion
+            assert min(lengths) > args.z_step + 2
+
             # get targets from captions (excluding <start> tokens)
-            targets = pack_padded_sequence(captions[:,1:], lengths, batch_first=True)[0]
+            #targets = pack_padded_sequence(captions[:,1:], lengths, batch_first=True)[0]
+            targets_var = captions[:,args.z_step+1]
+            targets_det = pack_padded_sequence(captions[:,args.z_step+2:], [l - args.z_step - 1 for l in lengths], batch_first=True)[0]
             
             # Get prior and approximate distributions
             decoder.zero_grad()
             encoder.zero_grad()
             features = encoder(images)
-            prior, q_z, q_x = decoder(features, captions, lengths)
+            prior, q_z, q_x, det_x = decoder(features, captions, lengths, z_step=args.z_step)
 
             # Calculate KL Divergence
             kl = torch.mean(kl_divergence(*q_z+prior))
 
             # Get marginal likelihood from log likelihood of the correct symbol
-            index = (torch.cuda.LongTensor(range(q_x.shape[0])), targets)
+            index = (torch.cuda.LongTensor(range(q_x.shape[0])), targets_var)
             ml = torch.mean(q_x[index])
 
+            # Get Cross-Entropy loss for deterministic decoder
+            ce = cross_entropy(det_x, targets_det)
+
             elbo = ml - kl
-            loss = -elbo
+            loss_var = -elbo
+
+            loss_det = ce
+
+            loss = loss_var + loss_det
 
             batch_loss.append(loss.data[0])
+            batch_loss_det.append(loss_det.data[0])
             batch_kl.append(kl.data[0])
             batch_ml.append(ml.data[0])
             
@@ -200,6 +216,13 @@ if __name__ == '__main__':
     parser.add_argument('--restart', action='store_true')
     parser.add_argument('--train_encoder', action='store_true')
     parser.add_argument('--val_step', type=int, default=100)
+    parser.add_argument('--z_step' , type=int, default=3,
+                        help='step at which to train latent state distribution')
     args = parser.parse_args()
     print(args)
-    main(args)
+    try:
+        main(args)
+    except:
+        typ, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
