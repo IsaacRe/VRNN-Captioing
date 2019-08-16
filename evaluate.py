@@ -129,7 +129,9 @@ def semantic_similarity(decoder,vocab,str1,str2):
         similarity += pdist(embed1, embed2)
     return similarity/len(str1)
 
-
+"""
+Evaluate captions stored in results json
+"""
 def cocoEval(val='data/captions_val2014.json', res='data/captions_val2014_results.json'):
     coco = COCO(val)
     cocoRes = coco.loadRes(res)
@@ -172,7 +174,9 @@ def main(args):
 
         with open(args.filepath, 'w+') as f:
             pickle.dump((scores,scores_u), f)        
-
+"""
+Predict captions and store in results json
+"""
 def test(encoder, decoder, vocab, num_samples, num_hints, debug=False, c_step=0.0, no_avg=True):
     transform = transforms.Compose([
        transforms.Resize(224),

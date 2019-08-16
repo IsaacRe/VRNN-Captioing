@@ -3,9 +3,14 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, PackedSequence
+from torch.distributions import Normal
 from torch.autograd import Variable
-import pdb
 
+
+def to_var(x, volatile=False):
+    if torch.cuda.is_available():
+        return Variable(x, volatile=volatile).cuda()
+    return Variable(x, volatile=volatile)
 
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
@@ -31,7 +36,190 @@ class EncoderCNN(nn.Module):
         features = self.bn(self.linear(features))
         return features
     
-    
+"""
+Implementation of Variational RNN
+Modified to allow deterministic LSTM forward pass to be done for specified time steps
+"""
+class VRNN(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, latent_size, num_layers_lstm):
+        """Set the hyper-parameters and build the layers."""
+        super(VRNN, self).__init__()
+        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.lstm = nn.LSTM(embed_size + latent_size, hidden_size, num_layers_lstm, batch_first=True)
+        # q(z|x, h)
+        self.q_z = nn.Linear(embed_size + hidden_size, latent_size * 2)
+        # p(z|h)
+        self.prior = nn.Linear(hidden_size, latent_size * 2)
+        # gaussian noise generator for re-paramaterization trick
+        self.normal = Normal(torch.zeros(latent_size,), torch.ones(latent_size,))
+        # q(x|z) backwards inference
+        self.q_x = nn.Linear(latent_size + hidden_size, vocab_size)
+        # deterministicly computed distribution over dictionary output (vanilla output)
+        self.det_x = nn.Linear(hidden_size, vocab_size)
+        self.init_weights()
+
+    def init_weights(self):
+        """Initialize weights."""
+        self.embed.weight.data.uniform_(-0.1, 0.1)
+        self.q_z.weight.data.uniform_(-0.1, 0.1)
+        self.q_z.bias.data.fill_(0)
+        self.prior.weight.data.uniform_(-0.1, 0.1)
+        self.prior.bias.data.fill_(0)
+        self.q_x.weight.data.uniform_(-0.1, 0.1)
+        self.q_x.bias.data.fill_(0)
+        self.det_x.weight.data.uniform_(-0.1, 0.1)
+        self.det_x.bias.data.fill_(0)
+
+    """
+    Conduct forward pass, outputting prior, posterior, and inference distributions
+        z_step: 'all' - compute distributions for every step
+                t - compute distributions during step, t, compute deterministic output for all
+                    steps following
+    """
+    def forward(self, features, captions, lengths, states=None, z_0=None, z_step='all'):
+        """ Decode image feature vectors and generates captions. """
+        
+        z_padding = to_var(torch.zeros(features.shape[0], self.q_z.out_features / 2))
+        if z_0 is None:
+            z_0 = z_padding
+        features = torch.cat([features, z_0], dim=1).unsqueeze(1)
+
+        # conduct initial lstm step to embed image features in internal states
+        h, states = self.lstm(features, states)
+        h = h.squeeze(1)
+        embeddings = self.embed(captions)
+
+        p_mus, p_sigmas, q_mus, q_sigmas, q_xs, det_xs = [], [], [], [], [], []
+        for i in range(max(lengths)):
+            if z_step == 'all' or i == z_step:
+                # conduct forward pass for VRNN cell
+
+                # get tuple of (mean, std dev) for prior from h_tm1
+                p_mu, p_sigma = self.prior(h).chunk(2, dim=1)
+                # get tuple of (mean, var) for q_z from x_t and h_tm1
+                q_mu, q_sigma = self.q_z(torch.cat([embeddings[:,i], h], dim=1)).chunk(2, dim=1)
+                # sample from q_z using reparameterization to get z - we take n=batch size samples
+                z = to_var(self.normal.sample_n(q_mu.shape[0])) * q_sigma + q_mu
+                # get q_x from z_t and h_tm1
+                q_x = self.q_x(torch.cat([z, h], dim=1))
+                q_x = nn.functional.log_softmax(q_x, dim=1)
+                # perform lstm step to get h_t from x_t, z_t, h_tm1 - unsqueeze for lstm api
+                inputs = torch.cat([embeddings[:,i], z], dim=1).unsqueeze(1)
+                h, states = self.lstm(inputs, states)
+                h = h.squeeze(1)
+
+                p_mus.append(p_mu)
+                p_sigmas.append(p_sigma)
+                q_mus.append(q_mu)
+                q_sigmas.append(q_sigma)
+                q_xs.append(q_x)
+
+            else:
+                # conduct forward pass for deterministic LSTM cell
+
+                inputs = torch.cat([embeddings[:,i], z_padding], dim=1).unsqueeze(1)
+                h, states = self.lstm(inputs, states)
+                h = h.squeeze(1)
+
+                # if we are decoding, compute distribution over dictionary to output
+                if i > z_step:
+                    det_output = self.det_x(h)
+                    det_xs.append(det_output)
+
+        # pack padded sequence to mask out padding terms and flatten batch + step dimensions
+        #[p_mus, p_sigmas, q_mus, q_sigmas, q_xs] = [pack_padded_sequence(torch.stack(t, dim=1), lengths, batch_first=True)[0] for t in [p_mus, p_sigmas, q_mus, q_sigmas, q_xs]]
+        [p_mus, p_sigmas, q_mus, q_sigmas, q_xs] = [t[0] for t in [p_mus, p_sigmas, q_mus, q_sigmas, q_xs]]
+        det_xs = pack_padded_sequence(torch.stack(det_xs, dim=1), [l - z_step - 1 for l in lengths], batch_first=True)[0]
+
+        return (p_mus, p_sigmas), (q_mus, q_sigmas), q_xs, det_xs
+
+    """
+    Encode the first t ground truths, for t = z_step, conducting a variational rnn cell forward pass
+        during step t, in order to obtain q(z_t|x_t, h_t-1) and p(z_t|h_t-1) that will both define
+        (along with x_t, h_t-1) a distribution over h_t, and thereby a distribution over decoded
+        captions beginning with the specified ground truths
+    """
+    def encode(self, features, ground_truth, z_step, states=None, z_0=None):
+        z_padding = to_var(torch.zeros(features.shape[0], self.q_z.out_features / 2))
+        if z_0 is None:
+            z_0 = z_padding
+        features = torch.cat([features, z_0], dim=1).unsqueeze(1)
+
+        # conduct initial lstm step to embed image features in internal states
+        _, states = self.lstm(features, states)
+        embeddings = self.embed(ground_truth)
+
+        # encode to get z_t, h_t-1
+        
+        # conduct deterministic forward pass for all steps before z_step
+        for i in range(z_step):
+            inputs = torch.cat([embeddings[:,i], z_padding], dim=1).unsqueeze(1)
+            h, states = self.lstm(inputs, states)
+            h = h.squeeze(1)
+            
+        # conduct forward pass for VRNN cell during z_step
+        # get tuple of (mean, std dev) for prior from h_tm1
+        p_mu, p_sigma = self.prior(h).chunk(2, dim=1)
+        # get tuple of (mean, var) for q_z from x_t and h_tm1
+        q_mu, q_sigma = self.q_z(torch.cat([embeddings[:,z_step], h], dim=1)).chunk(2, dim=1)
+        
+        return (p_mu, p_sigma), (q_mu, q_sigma), states, embeddings[:,z_step]
+
+            
+
+    """
+    Decode the remainder of a caption given h_t, c_t and x_t-1
+        h: [layers X batch X hidden]
+        c: [layers X batch X hidden]
+        x: [batch X embed]
+    """
+    def decode(self, states, x, z_step):
+        z_padding = to_var(torch.zeros(x.shape[0], self.q_z.out_features / 2))
+        caption = []
+        for i in range(20 - z_step - 1):
+            inputs = torch.cat([x, z_padding], dim=1).unsqueeze(1)
+            h, states = self.lstm(inputs, states)
+            h = h.squeeze(1)
+
+            x = self.det_x(h)   # [batch X dictionary]
+            x = x.max(1)[1]     # [batch]
+
+            caption.append(x.data)
+
+            x = self.embed(x)
+
+        return torch.stack(caption, dim=1)
+
+    """
+    Encode latent distribution at step z_step, sample, then decode latent vector + hidden states
+        into the remaining part of the image caption
+    """
+    def sample(self, features, ground_truth, states=None, z_0=None, z_step=3):
+        # get prior and posterior densities at z_step
+        (p_mu, p_sigma), (q_mu, q_sigma), states, x = self.encode(features, ground_truth, z_step)
+
+        # sample to get z
+        z_p = to_var(self.normal.sample_n(features.shape[0])) * p_sigma + p_mu
+        z_q = to_var(self.normal.sample_n(features.shape[0])) * q_sigma + q_mu
+
+        # get hidden states to give to decoder
+        inputs_p = torch.cat([x, z_p], dim=1).unsqueeze(1)
+        inputs_q = torch.cat([x, z_q], dim=1).unsqueeze(1)
+
+        h_p, states_p, h_q, states_q = self.lstm(inputs_p, states) + self.lstm(inputs_q, states)
+        h_p, h_q = h_p.squeeze(1), h_q.squeeze(1)
+
+        # get predicted embedding of next step from h
+        x_p, x_q = self.det_x(h_p), self.det_x(h_q)     # [batch X dictionary]
+        x_p, x_q = x_p.max(1)[1], x_q.max(1)[1]         # [batch]
+        x_p, x_q = self.embed(x_p), self.embed(x_q)     # [batch X embed]
+
+        # decode from z, x, hidden states the remaining caption
+        captions_p = self.decode(states_p, x_p, z_step)
+        captions_q = self.decode(states_q, x_q, z_step) 
+
+        return captions_p, captions_q
+
 class DecoderRNN(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
         """Set the hyper-parameters and build the layers."""
