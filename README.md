@@ -99,3 +99,16 @@ python test/step_1.py --image 1.
 
 ## Pretrained model
 If you do not want to train the model from scratch, you can use a pretrained model. You can download the pretrained model [here](https://www.dropbox.com/s/ne0ixz5d58ccbbz/pretrained_model.zip?dl=0) and the vocabulary file [here](https://www.dropbox.com/s/26adb7y9m98uisa/vocap.zip?dl=0). You should extract pretrained_model.zip to `./models/` and vocab.pkl to `./data/` using `unzip` command.
+
+## Accessing captions for a given image file
+Captions are stored in a json  with the following format:
+<br><br>
+{
+<br> &nbsp; <caption_id> : {
+<br> &nbsp; &nbsp; 'image_id' : <image_id>,
+<br> &nbsp; &nbsp; 'id' : <caption_id>,
+<br> &nbsp; &nbsp; 'caption' : <image_caption>
+<br> &nbsp; }
+<br> &nbsp; ...
+<br> }
+<br><br> For image_id of a given annotation entry, the corresponding image file is 'data/<train/val>2014/COCO_<train/val>2014_000000<image_id>.jpg'
